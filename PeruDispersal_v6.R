@@ -521,7 +521,6 @@ hyperdat.bi <- mapply(function(dat, site) {
                    }, dat=hyperdat.bi, site=as.list(names(hyperdat.bi)),
                    SIMPLIFY=FALSE)
 
-
 ## data set with all data
 hyperdat.bi.sel <- do.call('rbind', hyperdat.bi) ## note that we don't have 
                                                      # to worry about edge effects.
@@ -533,9 +532,13 @@ hyperdat.bi.sel <- cbind.hyperframe(
 
 hyperdat.bi.sel$site <- factor(hyperdat.bi.sel$site)
 
+## One species, Unonopsis floribunda seems to cause problems(sp.id 729)
+## at CC2. Removing that manually
+hyperdat.bi.sel <- subset(hyperdat.bi.sel, !(sp.id=="729" & pname=='CC2'))
+
 ## Save the objects required for analysis so we don't
 ## always have to repeat processing (and for transfer to cluster)
-save('dispersal', "sitedat", "extractModRanefs", "getSpeciesList",
+save('dispersal', "sitedat", "extractModRanefs",
           'hyperdat.uni.sel', 'hyperdat.bi.sel', 'K2L', 'kfunclme2plot',
           'plot.kfunctionlme', 'ppp.sps.uni', "ppp.sps.bi", 'theme_cust', 'trees', 'winlist',
           'sitedat', 'standardise', file='data4peruanalysisv6.RData')
@@ -545,7 +548,7 @@ save('dispersal', "sitedat", "extractModRanefs", "getSpeciesList",
 ################################################################################
 ##rm(list=ls())
 ##setwd("D:/rbagchi/Documents/Dropbox/Varun/finalAnalysis/PeruAnalysis")
-##load(file='data4peruanalysis6.RData')
+##load(file='../data/data4peruanalysisv6.RData')
 ## Can start from here and jump to models to save time
 
 ################################################################################
@@ -557,12 +560,10 @@ save('dispersal', "sitedat", "extractModRanefs", "getSpeciesList",
 # hyperdat.bi.sel.c <- subset(hyperdat.bi.sel, Abiotic!=1 & Unkwn !=1) 
 ## Removing species with unknown dispersal
 hyperdat.bi.sel.c <- subset(hyperdat.bi.sel, Unkwn !=1)
-summary(hyperdat.bi.sel.c)
 
 ## Now univariate K funcs
 ##hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Abiotic!=1  & Unkwn !=1)
 hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1)
-
 
 ## Extracing some summaries of the data to report in the paper
 ## Some numbers on number of individuals/species etc etc
@@ -607,14 +608,13 @@ hyperdat.uni.sap.c <- subset(hyperdat.uni.sel.c, stage=='S')
 ## effect of using a categorical hunting treatment
 hyperdat.uni.sap.c$hunted <- relevel(hyperdat.uni.sap.c$hunted, 'intact')
 hyperdat.bi.sap.c$hunted <- relevel(hyperdat.bi.sap.c$hunted, 'intact')
-summary(hyperdat.bi.sap.c)
-sapMod.bi <- lmeHyperframe(hyperdat.bi.sap.c, 0:15,
+
+sapMod.bi <- lmeHyperframe(hyperdat.bi.sap.c, 0:rmax,
                          fixed="comp*huntpres*HSD",
                          random="1|site/Spp",
                          computeK=FALSE)
-summary(sapMod.bi)
-plot(hyperdat.bi.sap.c[1,]$K)
-# sapMod.bi <- lmeHyperframe(hyperdat.bi.sap.c, 0:25,
+
+# sapMod.bi <- lmeHyperframe(hyperdat.bi.sap.c, 0:rmax,
 #                            fixed="comp*hunted*HSD",
 #                            random="1|site/Spp",
 #                            computeK=FALSE)
@@ -692,24 +692,24 @@ pl.sap.uni <- ggplot(sap.plotdat, aes(x=distance, y=K.uni, ymin=lcl.uni, ymax=uc
 ##   scale_color_brewer(palette='Set1')+ scale_fill_brewer(palette='Pastel1') +
     labs(x='Distance, r, (m)', y=expression(bold(hat(K)(r)[con]-hat(K)(r)[het])))
 
-plot_grid(pl.sap.uni, pl.sap.bi, labels= c('Uni', 'bi'))
+pl.saps <- plot_grid(pl.sap.uni, pl.sap.bi, labels= c('Uni', 'bi'))
 
-
+ggsave("saplingplot.pdf", pl.saps)
 ## Anova type analysis for table 2 - run on cluster. Repeated here with
 ## very few iterations to demonstrate code. 999 used on cluster.
 
 ## main effects
-sapMod.uni1way <- lmeHyperframe(hyperdat.uni.sap.c, 0:25,
+sapMod.uni1way <- lmeHyperframe(hyperdat.uni.sap.c, 0:rmax,
                          fixed="comp+huntpres+HSD",
                          random="1|site/Spp",
                          computeK=FALSE)
 
 
 anova1waysaps <-  bootstrap.compare.lme(sapMod.uni1way, term='comp',
-                          dists=1:25, nboot=nsim, ncore=7)
+                          dists=1:rmax, nboot=nsim, ncore=7)
 
 ## 2 way interactions
-sapMod.uni2way <- lmeHyperframe(hyperdat.uni.sap.c, 0:25,
+sapMod.uni2way <- lmeHyperframe(hyperdat.uni.sap.c, 0:rmax,
                          fixed="(comp+huntpres+HSD)^2",
                          random="1|site/Spp",
                          computeK=FALSE)
@@ -717,13 +717,13 @@ sapMod.uni2way <- lmeHyperframe(hyperdat.uni.sap.c, 0:25,
 anova2waysaps <- sapply(c('comp:huntpres', 'comp:HSD'), function(term)
 {
     bootstrap.compare.lme(sapMod.uni2way, term=term,
-                          dists=1:25, nboot=nsim, ncore=7)
+                          dists=1:rmax, nboot=nsim, ncore=7)
 }, simplify=FALSE)
 
 
 
 ## 3 way interaction
-anova3waysaps <- bootstrap.compare.lme(sapMod.uni, term="comp:huntpres:HSD", dists=1:25, nboot=nsim, ncore=7)
+anova3waysaps <- bootstrap.compare.lme(sapMod.uni, term="comp:huntpres:HSD", dists=1:rmax, nboot=nsim, ncore=7)
 
 anova1waysaps[1:2]
 sapply(anova2waysaps, function(x) x[1:2])
@@ -766,13 +766,18 @@ saps.Anova.nopl <- sapply(c('uni', 'bi'), function(pairing){
 })))}, simplify=FALSE)
 saps.Anova.nopl
 
+rm.sp <- hyperdat.bi.sel.c$sp.id[hyperdat.bi.sel.c$N1 < 2]
+hyperdat.bi.sel.c2 <- subset(hyperdat.bi.sel.c, !sp.id %in% rm.sp)
+nrow(hyperdat.bi.sel.c2)
 ## Full models with Juveniles and saplings (pair2)
-intMod.bi <- lmeHyperframe(hyperdat.bi.sel.c, 0:25,
+intMod.bi <- lmeHyperframe(hyperdat.bi.sel.c, 0:rmax,
                          fixed="comp*stage*huntpres*HSD",
                          random="1|site/Spp",
                          computeK=FALSE)
 
-intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:25,
+hyperdat.uni.sel.c2 <- hyperdat.uni.sel.c[!(hyperdat.uni.sel.c$sp.id %in% rm.sp),]
+nrow(hyperdat.bi.sel.c2)
+intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,
                          fixed="comp*stage*huntpres*HSD",
                          random="1|site/Spp",
                          computeK=FALSE)
@@ -789,11 +794,11 @@ modmat.int <-  model.matrix(allform, data=preddat.int)
 modmat.int <-  modmat.int[preddat.int$comp=='con',]-modmat.int[preddat.int$comp=='het',]
 
 ## Bootstrapping
-intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi, lin.comb.Ct=modmat.int, nboot=nsim, alpha=0.05,
-                                    ncore=7)
+system.time(intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi, lin.comb.Ct=modmat.int, nboot=nsim, alpha=0.05,
+                                    ncore=5))
 
-intMod.uni.boot <-  bootstrap.t.CI.lme(intMod.uni, lin.comb.Ct=modmat.int, nboot=nsim,
-                                       alpha=0.05, ncore=7)
+system.time(intMod.uni.boot <-  bootstrap.t.CI.lme(intMod.uni, lin.comb.Ct=modmat.int, nboot=nsim,
+                                       alpha=0.05, ncore=8))
 
 ## can load results from cluster
 ##system("scp bbcsrv3:~/Peru/March2016/results/PeruDispersal_v4_nopl_0.RData ../../March16/results/")

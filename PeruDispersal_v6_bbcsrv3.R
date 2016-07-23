@@ -30,7 +30,6 @@ load(file='../data/data4peruanalysisv6.RData')
 hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Unkwn !=1)  ## biivariate
 hyperdat.uni.sel.c <- subset(hyperdat.uni.sel,  Unkwn !=1) ## univariate
 
-
 ## Removing Pseudolmedia laevis if required
 if(nopl==1){
     hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c,
@@ -74,8 +73,10 @@ intMod.uni.boot <-  bootstrap.t.CI.lme(intMod.uni, lin.comb.Ct=modmat.int, nboot
 results <- list('bi' = list('model' = intMod.bi, 'boot' = intMod.bi.boot),
                 'uni' = list('model '= intMod.uni, 'boot' = intMod.uni.boot),
                 'preddat' = preddat.int)
-
+## Save object
 objname <- paste0('results.nopl', nopl)
 assign(results, objname)
+dir.name <- paste0('../results/results_', Sys.Date())
+system(paste('mkdir -p', dir.name))
 
-save(list=objname, file="PeruDispersal.RData")
+save(list=objname, file=paste(dir.name, "PeruDispersal.RData", sep='/'))

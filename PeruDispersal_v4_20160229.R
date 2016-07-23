@@ -435,6 +435,7 @@ summary(hyperdat.bi.sel.c)
 ## Now univariate K funcs
 hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Abiotic==0  & Unkwn !=1)
 
+nrow(hyperdat.uni.sel.c)/(2*2*2*2)
 
 ## Extracing some summaries of the data to report in the paper
 ## Some numbers on number of individuals/species etc etc

@@ -599,10 +599,22 @@ aggregate(N2 ~ stage*comp, hyperdat.bi.sel.c,  sum)
 ## set number of iterations for bootstrapping - keep small for trials (takes a long time)
 ## Code was run on a grid computer for paper
 nsim <- 19
-
+rmax <- 15
 ## First sapling only models
 hyperdat.bi.sap.c <- subset(hyperdat.bi.sel.c, stage=='S')
 hyperdat.uni.sap.c <- subset(hyperdat.uni.sel.c, stage=='S')
+
+## trying to model the L function instead of the K function
+## might provide better random effect distributions
+hyperdat.bi.sap.c$K <- lapply(hyperdat.bi.sap.c$K, function(x) {
+  x[['border']] <-  sqrt(x$border)/pi
+  return(x)  })
+
+hyperdat.uni.sap.c$K <- lapply(hyperdat.uni.sap.c$K, function(x) {
+  x[['border']] <-  sqrt(x$border)/pi
+  return(x)  })
+
+anovawithpl <- list(oneway = anova1waysaps, twoway = anova2waysaps, threeway=anova3waysaps)
 
 ## Set intact forests as the reference level when checking the
 ## effect of using a categorical hunting treatment
@@ -693,8 +705,8 @@ pl.sap.uni <- ggplot(sap.plotdat, aes(x=distance, y=K.uni, ymin=lcl.uni, ymax=uc
     labs(x='Distance, r, (m)', y=expression(bold(hat(K)(r)[con]-hat(K)(r)[het])))
 
 pl.saps <- plot_grid(pl.sap.uni, pl.sap.bi, labels= c('Uni', 'bi'))
-
-ggsave("saplingplot.pdf", pl.saps)
+pl.saps
+##ggsave("saplingplot.pdf", pl.saps)
 ## Anova type analysis for table 2 - run on cluster. Repeated here with
 ## very few iterations to demonstrate code. 999 used on cluster.
 
@@ -734,19 +746,21 @@ anova3waysaps[1:2]
 ## This analysis includes all except for wind dispersed species.
 
 ## function to extract the data we need from these results
-extractAnovas <- function(Aobj, type){
+extractAnovas <- function(Aobj, type, dist=15){
     Aobj <- Aobj[[type]]$anovas
-    sapply(Aobj, function(x) x$d25[c("term", "D", "p")])
+    dist <- paste0('d', dist)
+    sapply(Aobj, function(x) x[[dist]][c("term", "D", "p")])
 }
-
+Aobj[[pairing]]$anovas
 ### saplings only
 ## with P laevis
-##system("scp bbcsrv3:~/Peru/March2016/results/Peru_v4_?_wayAnovaSaps_nopl0.RData ../../March16/results/")
+
+system("scp bbcsrv3:~/Peru/July2016/results/results_2016-07-23/Peru_v6_?_wayAnovaSaps_nopl0_noqw0.RData ../results/")
 ## extract the relevant data
 saps.Anova.withpl <- sapply(c('uni', 'bi'), function(pairing){
-    saps.AnovaUni_withpl <- t(Reduce('cbind', sapply(1:3, function(i){
+    saps.AnovaUni_withpl <- t(Reduce('cbind', sapply(c(1, 3), function(i){
     cat(i)
-    objname <- load(paste0("../../March16/results/Peru_v4_", i, "_wayAnovaSaps_nopl0.RData"))
+    objname <- load(paste0("../results/Peru_v6_", i, "_wayAnovaSaps_nopl0_noqw0.RData"))
     Aobj <- get(objname)
     print(Aobj[c('intlevel', 'type')]) ## check it's the correct data
     extractAnovas(Aobj, pairing)

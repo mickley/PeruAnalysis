@@ -604,18 +604,6 @@ rmax <- 15
 hyperdat.bi.sap.c <- subset(hyperdat.bi.sel.c, stage=='S')
 hyperdat.uni.sap.c <- subset(hyperdat.uni.sel.c, stage=='S')
 
-## trying to model the L function instead of the K function
-## might provide better random effect distributions
-hyperdat.bi.sap.c$K <- lapply(hyperdat.bi.sap.c$K, function(x) {
-  x[['border']] <-  sqrt(x$border)/pi
-  return(x)  })
-
-hyperdat.uni.sap.c$K <- lapply(hyperdat.uni.sap.c$K, function(x) {
-  x[['border']] <-  sqrt(x$border)/pi
-  return(x)  })
-
-anovawithpl <- list(oneway = anova1waysaps, twoway = anova2waysaps, threeway=anova3waysaps)
-
 ## Set intact forests as the reference level when checking the
 ## effect of using a categorical hunting treatment
 hyperdat.uni.sap.c$hunted <- relevel(hyperdat.uni.sap.c$hunted, 'intact')
@@ -705,7 +693,7 @@ pl.sap.uni <- ggplot(sap.plotdat, aes(x=distance, y=K.uni, ymin=lcl.uni, ymax=uc
     labs(x='Distance, r, (m)', y=expression(bold(hat(K)(r)[con]-hat(K)(r)[het])))
 
 pl.saps <- plot_grid(pl.sap.uni, pl.sap.bi, labels= c('Uni', 'bi'))
-pl.saps
+
 ##ggsave("saplingplot.pdf", pl.saps)
 ## Anova type analysis for table 2 - run on cluster. Repeated here with
 ## very few iterations to demonstrate code. 999 used on cluster.
@@ -749,16 +737,16 @@ anova3waysaps[1:2]
 extractAnovas <- function(Aobj, type, dist=15){
     Aobj <- Aobj[[type]]$anovas
     dist <- paste0('d', dist)
-    sapply(Aobj, function(x) x[[dist]][c("term", "D", "p")])
+    sapply(Aobj, function(x)  x[[dist]][c("term", "D", "p")], simplify=TRUE)
 }
-Aobj[[pairing]]$anovas
+
 ### saplings only
 ## with P laevis
 
-system("scp bbcsrv3:~/Peru/July2016/results/results_2016-07-23/Peru_v6_?_wayAnovaSaps_nopl0_noqw0.RData ../results/")
+## system("scp bbcsrv3:~/Peru/July2016/results/results_2016-07-24/Peru_v6_?_wayAnovaSaps_nopl0_noqw0.RData ../results/")
 ## extract the relevant data
 saps.Anova.withpl <- sapply(c('uni', 'bi'), function(pairing){
-    saps.AnovaUni_withpl <- t(Reduce('cbind', sapply(c(1, 3), function(i){
+    saps.AnovaUni_withpl <- t(Reduce('cbind', sapply(1:3, function(i){
     cat(i)
     objname <- load(paste0("../results/Peru_v6_", i, "_wayAnovaSaps_nopl0_noqw0.RData"))
     Aobj <- get(objname)
@@ -768,29 +756,26 @@ saps.Anova.withpl <- sapply(c('uni', 'bi'), function(pairing){
 saps.Anova.withpl
 
 ## without P laevis
-##system("scp bbcsrv3:~/Peru/March2016/results/Peru_v4_?_wayAnovaSaps_nopl1.RData ../../March16/results/")
-## check effect of excluding Q wittii
+## system("scp bbcsrv3:~/Peru/July2016/results/results_2016-07-24/Peru_v6_?_wayAnovaSaps_nopl1_noqw0.RData ../results/")
+
+## check effect of excluding P laevis
 saps.Anova.nopl <- sapply(c('uni', 'bi'), function(pairing){
-    saps.AnovaUni_withpl <- t(Reduce('cbind', sapply(1:3, function(i){
+    saps.AnovaUni_withoutpl <- t(Reduce('cbind', sapply(1:3, function(i){
     cat(i)
-    objname <- load(paste0("../../March16/results/Peru_v4_", i, "_wayAnovaSaps_nopl1.RData"))
+    objname <- load(paste0("../results/Peru_v6_", i, "_wayAnovaSaps_nopl1_noqw0.RData"))
     Aobj <- get(objname)
     print(Aobj[c('intlevel', 'type')]) ## check it's the correct data
     extractAnovas(Aobj, pairing)
 })))}, simplify=FALSE)
 saps.Anova.nopl
 
-rm.sp <- hyperdat.bi.sel.c$sp.id[hyperdat.bi.sel.c$N1 < 2]
-hyperdat.bi.sel.c2 <- subset(hyperdat.bi.sel.c, !sp.id %in% rm.sp)
-nrow(hyperdat.bi.sel.c2)
+
 ## Full models with Juveniles and saplings (pair2)
 intMod.bi <- lmeHyperframe(hyperdat.bi.sel.c, 0:rmax,
                          fixed="comp*stage*huntpres*HSD",
                          random="1|site/Spp",
                          computeK=FALSE)
 
-hyperdat.uni.sel.c2 <- hyperdat.uni.sel.c[!(hyperdat.uni.sel.c$sp.id %in% rm.sp),]
-nrow(hyperdat.bi.sel.c2)
 intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,
                          fixed="comp*stage*huntpres*HSD",
                          random="1|site/Spp",
@@ -814,10 +799,10 @@ system.time(intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi, lin.comb.Ct=modmat.
 system.time(intMod.uni.boot <-  bootstrap.t.CI.lme(intMod.uni, lin.comb.Ct=modmat.int, nboot=nsim,
                                        alpha=0.05, ncore=8))
 
-## can load results from cluster
-##system("scp bbcsrv3:~/Peru/March2016/results/PeruDispersal_v4_nopl_0.RData ../../March16/results/")
+system("scp bbcsrv3:~/Peru/July2016/results/results_2016-07-24/PeruDispersal_nopl0.RData ../results/")## can load results from cluster
 
-objname <- load('../../March16/results/PeruDispersal_v4_nopl_0.RData')
+
+objname <- load('../results/PeruDispersal_nopl0.RData')
 intMod.boot <- get(objname)
 intMod.bi.boot <- intMod.boot$bi$boot
 intMod.uni.boot <- intMod.boot$uni$boot

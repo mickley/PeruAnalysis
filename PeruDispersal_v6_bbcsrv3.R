@@ -10,11 +10,18 @@ library(ReplicatedPointPatterns)
 print(paste('code run on', Sys.Date()))
 rseed <- 1234 ## set the seed for reproducibility
 
-##nboot <- 19; ncore <- 3;nopl <- 0;  ## for testing
-rmax <- 15
+##nboot <- 19; ncore <- 3;nopl <- 0; rmax <- 15;  ## for testing
+rmax <- as.numeric(Sys.getenv('rmax')) ## maximum distance
 nopl <- as.numeric(Sys.getenv('nopl')) ## exclude Pseudolmedia laevis?
+noqw <- as.numeric(Sys.getenv('noqw')) ## exclude Quarraribea laevis?
 ncore <- as.numeric(Sys.getenv("nclust"))
 nboot <- as.numeric(Sys.getenv('nsim')) ## number of simulations
+
+print(paste("No. cpus=", ncore, 
+            "No. simulations =", nboot, 
+            "P. laevis excluded (1=yes, 0=no) =", nopl,
+            "Q. wittii excluded (1=yes, 0=no) =", noqw))
+
 
 ################################################################################
 ## Load pre-processed data file
@@ -26,9 +33,10 @@ load(file='../data/data4peruanalysisv6.RData')
 ### Subsetting data
 ################################################################################
 ## abiotic species may be a bit odd and poorly represented. Have to remove from analysis
-##hyperdat.bi.sel.c <- subset(hyperdat.bi.sel, Abiotic!=1 & Unkwn !=1)  ## biivariate
-hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Unkwn !=1)  ## biivariate
-hyperdat.uni.sel.c <- subset(hyperdat.uni.sel,  Unkwn !=1) ## univariate
+##hyperdat.bi.sel.c <- subset(hyperdat.bi.sel, Abiotic!=1 & Unkwn !=1) ## bivariate
+hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Unkwn !=1)
+ ## univariate
+hyperdat.uni.sel.c <- subset(hyperdat.uni.sel,  Unkwn !=1)
 
 ## Removing Pseudolmedia laevis if required
 if(nopl==1){
@@ -38,13 +46,22 @@ if(nopl==1){
                                  !(Spp == 'Pseudolmedia laevis'))
 }
 
+## Removing Quarribea wittii if required
+if(noqw==1){
+    hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c,
+                                !(Spp == 'Quararibea wittii'))
+    hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c,
+                                 !(Spp == 'Quararibea wittii'))
+}
+
 ## Fit models
-intMod.bi <- lmeHyperframe(hyperdat.bi.sel.c, 0:rmax,         # Bivariate
+## Bivariate
+intMod.bi <- lmeHyperframe(hyperdat.bi.sel.c, 0:rmax,         
                          fixed="comp*stage*huntpres*HSD",
                          random="1|site/Spp",
                          computeK=FALSE)
-
-intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,     # Univariate
+## Univariate
+intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,    
                          fixed="comp*stage*huntpres*HSD",
                          random="1|site/Spp",
                          computeK=FALSE)
@@ -52,7 +69,8 @@ intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,     # Univariate
 ## construct data to make predictions with envelopes for figures
 preddat.int <-  expand.grid(stage=c('S', 'J'),
                             comp=c('con', 'het'),
-                            huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
+                            huntpres=quantile(sitedat$huntpres,
+                              c(0.25, 0.75)),
                             HSD = c(0, 1))
 ## RHS of model formula
 allform <- update(formula(intMod.uni[[1]]), NULL~.)
@@ -64,19 +82,33 @@ modmat.int <-  model.matrix(allform, data=preddat.int)
 modmat.int <-  modmat.int[preddat.int$comp=='con',]-modmat.int[preddat.int$comp=='het',]
 
 ## Bootstrapping
-intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi, lin.comb.Ct=modmat.int, nboot=nboot,
-                                      alpha=0.05, ncore=ncore, iseed=rseed, cltype="PSOCK")
+intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi,
+                                      lin.comb.Ct=modmat.int,
+                                      nboot=nboot, alpha=0.05,
+                                      ncore=ncore, iseed=rseed,
+                                      cltype="PSOCK")
 
-intMod.uni.boot <-  bootstrap.t.CI.lme(intMod.uni, lin.comb.Ct=modmat.int, nboot=nboot,
-                                       alpha=0.05, ncore=ncore, iseed=rseed, cltype="PSOCK")
+intMod.uni.boot <-  bootstrap.t.CI.lme(intMod.uni,
+                                       lin.comb.Ct=modmat.int,
+                                       nboot=nboot, alpha=0.05,
+                                       ncore=ncore, iseed=rseed,
+                                       cltype="PSOCK")
 
-results <- list('bi' = list('model' = intMod.bi, 'boot' = intMod.bi.boot),
-                'uni' = list('model '= intMod.uni, 'boot' = intMod.uni.boot),
+results <- list('bi' = list('model' = intMod.bi,
+                  'boot' = intMod.bi.boot),
+                'uni' = list('model '= intMod.uni,
+                  'boot' = intMod.uni.boot),
                 'preddat' = preddat.int)
 ## Save object
 objname <- paste0('results.nopl', nopl)
-assign(results, objname)
+
+assign(objname, results)
 dir.name <- paste0('../results/results_', Sys.Date())
+
 system(paste('mkdir -p', dir.name))
 
-save(list=objname, file=paste(dir.name, "PeruDispersal.RData", sep='/'))
+save(list=objname, file=paste0(dir.name, '/',
+                     paste0("PeruDispersal_nopl", nopl,
+                            '_noqw', noqw, '_rmax', rmax,
+                            ".RData")
+                     ))

@@ -14,12 +14,13 @@ noqw <- as.numeric(Sys.getenv('noqw')) ## exclude Quarribea wittii?
 intlevel <- as.numeric(Sys.getenv('arrayid')) ## interaction level
 ncore <-  as.numeric(Sys.getenv('nclust')) ## number of cpus
 nboot <- as.numeric(Sys.getenv('nsim')) ## number of simulations
-rmax <- 15
-print(paste("interaction =", intlevel, 
-	"No. cpus=", ncore, 
-	"No. simulations =", nboot, 
+rmax <- as.numeric(Sys.getenv('rmax'))
+print(paste("interaction =", intlevel,
+            "max distance =", rmax,
             "P. laevis excluded (1=yes, 0=no) =", nopl,
-            "Q. wittii excluded (1=yes, 0=no) =", noqw))
+            "Q. wittii excluded (1=yes, 0=no) =", noqw,
+            "No. simulations =", nboot, 
+            "No. cpus=", ncore))
 
 type <- paste("No_Plaevis =", nopl, "sqrtNxNyweights")
 
@@ -76,11 +77,8 @@ intMod.uni <- lmeHyperframe(hyperdat.uni.saps.c, 0:rmax,
 
 tests.uni <- lapply(terms, function(term) {
   list(
-       ## 'd10' = bootstrap.compare.lme(mods = intMod.uni, term=term,
-       ##   dists=1:10, nboot=nboot,
-       ##   ncore=ncore, iseed=rseed),
-       'd15' =  bootstrap.compare.lme(mods = intMod.uni,
-         term=term, dists=1:15,
+       'dtable' =  bootstrap.compare.lme(mods = intMod.uni,
+         term=term, dists=1:rmax,
          nboot=nboot, ncore=ncore,
          iseed=rseed)
        )})
@@ -89,13 +87,9 @@ tests.uni <- list(anovas=tests.uni, model=intMod.uni, type=type)
 
 tests.bi <- lapply(terms, function(term){
     list(
-         ## 'd10' = bootstrap.compare.lme(mods = intMod.bi,
-         ##   term=term,
-         ##   dists=1:10, nboot=nboot, ncore=ncore, iseed=rseed),
-
-         'd15' = bootstrap.compare.lme(mods = intMod.bi,
+         'dtable' = bootstrap.compare.lme(mods = intMod.bi,
            term=term,
-           dists=1:15, nboot=nboot, ncore=ncore,iseed=rseed)
+           dists=1:rmax, nboot=nboot, ncore=ncore,iseed=rseed)
 )})
 
 tests.bi <- list(anovas=tests.bi, model=intMod.bi)
@@ -109,8 +103,8 @@ assign(objname, anovaSaps)
 dir.name <- paste0('../results/results_', Sys.Date())
 system(paste('mkdir -p', dir.name))
 
-save(list=objname, file=paste0(dir.name, 'Peru_v6_',
+save(list=objname, file=paste0(dir.name, '/Peru_v6_',
                      intlevel, '_wayAnovaSaps_nopl', nopl,
-                     '_noqw', noqw, '.RData'))
+                     '_noqw', noqw,  '_rmax', rmax, '.RData'))
     
 

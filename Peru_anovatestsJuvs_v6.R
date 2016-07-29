@@ -12,9 +12,10 @@ rseed <- 1234 ## set the seed for reproducibility
 nopl <- as.numeric(Sys.getenv('nopl')) ## include Pseudolmedia laevis?
 noqw <- as.numeric(Sys.getenv('noqw')) ## exclude Quarribea wittii?
 intlevel <- as.numeric(Sys.getenv('arrayid')) ## interaction level
+rmax <- as.numeric(Sys.getenv('rmax')) ## maximum distance
 ncore <-  as.numeric(Sys.getenv('nclust')) ## number of cpus
 nboot <- as.numeric(Sys.getenv('nsim')) ## number of simulations
-rmax <- 15
+
 print(paste("interaction =", intlevel, 
             "No. cpus=", ncore, 
             "No. simulations =", nboot, 
@@ -25,7 +26,6 @@ print(paste("interaction =", intlevel,
 type <- paste("No_Plaevis =", nopl, "sqrtNxNyweights")
 
 ## Load data
-##load(file='data4peruanalysis3.RData')
 load(file='../data/data4peruanalysisv6.RData')
 
 ## Remove unknown dispersal  species from within and between cohort analyses
@@ -76,8 +76,8 @@ intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,
 
 tests.uni <- lapply(terms, function(term) {
     list(
-         'd15' =  bootstrap.compare.lme(mods = intMod.uni,
-           term=term, dists=1:15,
+         'dtable' =  bootstrap.compare.lme(mods = intMod.uni,
+           term=term, dists=1:rmax,
            nboot=nboot, ncore=ncore,
            iseed=rseed)
          )})
@@ -86,9 +86,9 @@ tests.uni <- list(anovas=tests.uni, model=intMod.uni, type=type)
 
 tests.bi <- lapply(terms, function(term){
   list(
-       'd15' = bootstrap.compare.lme(mods = intMod.bi,
+       'dtable' = bootstrap.compare.lme(mods = intMod.bi,
          term=term,
-         dists=1:15, nboot=nboot, ncore=ncore, iseed=rseed)
+         dists=1:rmax, nboot=nboot, ncore=ncore, iseed=rseed)
        )})
 
 anovaJuvs <- list('uni' = tests.uni, 'bi' = tests.bi,
@@ -103,4 +103,4 @@ system(paste('mkdir -p', dir.name))
 
 save(list=objname, file=paste0(dir.name, '/', 'Peru_v6_',
                      intlevel, '_wayAnovaJuvs_nopl', nopl,
-                     '_noqw', noqw, '.RData'))
+                     '_noqw', noqw, '_rmax', rmax, '.RData'))

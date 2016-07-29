@@ -35,9 +35,18 @@ echo "Running  Peru spatial analyses"
 
 # set global parameters for analysis
 export nclust=$NSLOTS
-export nopl=0
-export nsim=99
+
+## set default values for various variables
+## these can be overriden from the command line
+## To run the code with default values of noqw and nopl but
+## resetting nsim and rmax do
+## qsub -v nsim=999,rmax=10 peruDispersal.sh
+${noqw:0}
+${nopl:0}
+${nsim:99}
+${rmax:15}
+
 echo 'number of cpus requested = ' $nclust
 
-R CMD BATCH ~/Peru/July2016/PeruAnalysis/PeruDispersal_v6_bbcsrv3.R ~/Peru/July2016/perudisp\_v6\_pl$nopl.Rout
+R CMD BATCH ~/Peru/July2016/PeruAnalysis/PeruDispersal_v6_bbcsrv3.R ~/Peru/July2016/perudisp\_v6\_pl$nopl\_niter$nsim\_rmax$rmax\.Rout
 

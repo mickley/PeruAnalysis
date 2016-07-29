@@ -37,11 +37,12 @@ echo "Running  Peru spatial analyses Anova"
 # set global parameters for analysis
 export nclust=$NSLOTS
 export arrayid=$SGE_TASK_ID
-export nopl=0
-export noqw=0
-export nsim=99
+# export rmax=15
+# export nopl=0
+# export noqw=0
+# export nsim=99
 
 echo 'number of cpus requested = ' $nclust
 
 # execute the R commands in the R script R_script
-R CMD BATCH ~/Peru/July2016/PeruAnalysis/Peru_anovatestsJuvs_v6.R ~/Peru/July2016/peru_anovaJuvs_v6\_pl$nopl\_$arrayid.Rout
+R CMD BATCH ~/Peru/July2016/PeruAnalysis/Peru_anovatestsJuvs_v6.R ~/Peru/July2016/peru_anovaJuvs_v6\_pl$nopl\_qw$noqw\_niter$nsim\_rmax$rmax\_$arrayid.Rout

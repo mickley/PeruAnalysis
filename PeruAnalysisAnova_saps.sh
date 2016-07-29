@@ -37,11 +37,18 @@ echo "Running  Peru spatial analyses Anova"
 # set global parameters for analysis
 export nclust=$NSLOTS
 export arrayid=$SGE_TASK_ID
-export nopl=0
-export noqw=0
-export nsim=99
+
+## set default values for various variables
+## these can be overriden from the command line
+## To run the code with default values of noqw and nopl but
+## resetting nsim and rmax do
+## qsub -v nsim=999,rmax=10 PeruAnalysisAnova_saps.sh
+${noqw:0}
+${nopl:0}
+${nsim:99}
+${rmax:15}
 
 echo 'number of cpus requested = ' $nclust
 
 # execute the R commands in the R script R_script
-R CMD BATCH ~/Peru/July2016/PeruAnalysis/Peru_anovatestsSaps_v6.R ~/Peru/July2016/peru_anovaSaps\_v6\_pl$nopl\_$arrayid.Rout
+R CMD BATCH ~/Peru/July2016/PeruAnalysis/Peru_anovatestsSaps_v6.R ~/Peru/July2016/peru_anovaSaps\_v6\_pl$nopl\_qw$noqw\_niter$nsim\_rmax$rmax\_$arrayid.Rout

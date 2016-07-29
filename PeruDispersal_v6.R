@@ -734,35 +734,38 @@ anova3waysaps[1:2]
 ## This analysis includes all except for wind dispersed species.
 
 ## function to extract the data we need from these results
-extractAnovas <- function(Aobj, type, dist=15){
+extractAnovas <- function(Aobj, type){
     Aobj <- Aobj[[type]]$anovas
-    dist <- paste0('d', dist)
-    sapply(Aobj, function(x)  x[[dist]][c("term", "D", "p")], simplify=TRUE)
+    sapply(Aobj, function(x)  x[['dtable']][c("term", "D", "p")], simplify=TRUE)
 }
+
 
 ### saplings only
 ## with P laevis
-
-## system("scp bbcsrv3:~/Peru/July2016/results/results_2016-07-24/Peru_v6_?_wayAnovaSaps_nopl0_noqw0.RData ../results/")
+## system("scp bbcsrv3:~/Peru/July2016/results/consolidatedResults/Peru_v6_?_wayAnovaSaps_nopl0_noqw0_rmax15.RData ../results/")
 ## extract the relevant data
 saps.Anova.withpl <- sapply(c('uni', 'bi'), function(pairing){
     saps.AnovaUni_withpl <- t(Reduce('cbind', sapply(1:3, function(i){
-    cat(i)
-    objname <- load(paste0("../results/Peru_v6_", i, "_wayAnovaSaps_nopl0_noqw0.RData"))
-    Aobj <- get(objname)
-    print(Aobj[c('intlevel', 'type')]) ## check it's the correct data
-    extractAnovas(Aobj, pairing)
-})))}, simplify=FALSE)
+        cat(i)
+
+        objname <- load(paste0("../results/Peru_v6_", i,
+                               "_wayAnovaSaps_nopl0_noqw0_rmax10.RData"))
+        Aobj <- get(objname)
+        print(Aobj[c('intlevel', 'type')]) ## check it's the correct data
+        extractAnovas(Aobj, pairing)
+    })))}, simplify=FALSE)
+(Aobj$uni$anovas[[1]]$dtable$dists)
+summary(Aobj$uni$model)
 saps.Anova.withpl
 
 ## without P laevis
-## system("scp bbcsrv3:~/Peru/July2016/results/results_2016-07-24/Peru_v6_?_wayAnovaSaps_nopl1_noqw0.RData ../results/")
+## system("scp bbcsrv3:~/Peru/July2016/results/consolidatedResults/Peru_v6_?_wayAnovaSaps_nopl1_noqw0_rmax10.RData ../results/")
 
 ## check effect of excluding P laevis
 saps.Anova.nopl <- sapply(c('uni', 'bi'), function(pairing){
     saps.AnovaUni_withoutpl <- t(Reduce('cbind', sapply(1:3, function(i){
     cat(i)
-    objname <- load(paste0("../results/Peru_v6_", i, "_wayAnovaSaps_nopl1_noqw0.RData"))
+    objname <- load(paste0("../results/Peru_v6_", i, "_wayAnovaSaps_nopl1_noqw0_rmax10.RData"))
     Aobj <- get(objname)
     print(Aobj[c('intlevel', 'type')]) ## check it's the correct data
     extractAnovas(Aobj, pairing)
@@ -962,7 +965,7 @@ all.Anova.nopl
 ## Anova type analysis for table 3 - run on cluster for 999 iterations
 ## (see Peru_anovatestsJuvs.R, but code  provided here too
 ## main effects
-juvMod.uni1way <- lmeHyperframe(hyperdat.uni.sel.c, 0:25,
+juvMod.uni1way <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,
                          fixed="(comp+stage + huntpres+HSD)^2",
                          random="1|site/Spp",
                          computeK=FALSE
@@ -971,7 +974,7 @@ anova2wayjuvs <-  bootstrap.compare.lme(juvMod.uni1way, term='comp',
                           dists=1:25, nboot=nsim, ncore=7)
 
 ## 2 way interactions
-sapMod.uni2way <- lmeHyperframe(hyperdat.uni.sap.c, 0:25,
+sapMod.uni2way <- lmeHyperframe(hyperdat.uni.sap.c, 0:rmax,
                          fixed="(comp+huntpres+HSD)^2",
                          random="1|site/Spp",
                          computeK=FALSE)
@@ -979,7 +982,7 @@ sapMod.uni2way <- lmeHyperframe(hyperdat.uni.sap.c, 0:25,
 anova2waysaps <- sapply(c('comp:huntpres', 'comp:HSD'), function(term)
 {
     bootstrap.compare.lme(sapMod.uni2way, term=term,
-                          dists=1:25, nboot=nsim, ncore=7)
+                          dists=1:rmax, nboot=nsim, ncore=7)
 }, simplify=FALSE)
 
 
@@ -997,7 +1000,7 @@ anova3waysaps[1:2]
 ################################################################################
 summary(hyperdat.uni.sel)
 
-hyperdat.uni.ind <- subset(hyperdat.uni.sel, Abiotic < 1 & Unkwn < 1)
+hyperdat.uni.ind <- subset(hyperdat.uni.sel, Unkwn < 1)
 
 ## K functions based on < 15 individuals are meaningless on their own
 ## (although they can contribute with low weight to an overall analysis)
@@ -1205,9 +1208,9 @@ dev.off()
 
 
 ## Plot figure S1 (Univariate K functions without P. laevis)
-##system("scp bbcsrv3:~/Peru/March2016/results/PeruDispersal_v4_nopl_1.RData ../../March16/results/")
+##system("scp bbcsrv3:~/Peru/July2016/results/results_2016-07-24/PeruDispersal_nopl1.RData ../results/")
 
-objname <- load('../../March16/results/PeruDispersal_v4_nopl_1.RData')
+objname <- load('../results/PeruDispersal_nopl1.RData')
 intModnopl.boot <- get(objname)
 intModnopl.uni.boot <- intModnopl.boot$uni$boot
 preddatnopl.int <- intModnopl.boot$preddat
@@ -1240,7 +1243,9 @@ pl.int.uninopl <- ggplot(int.uninopl.plotdat,
     scale_color_brewer(palette='Set1')+ scale_fill_brewer(palette='Pastel1') +
     labs(x='Distance, r, (m)', y=expression(bold(hat(K)(r)[con]-hat(K)(r)[het])),
          color='Cohort', fill='Cohort')
+dev.new()
 pl.int.uninopl
+
 
 ## Format figure s1
 z.uni.s1 <- ggplot_gtable(ggplot_build(pl.int.uninopl))

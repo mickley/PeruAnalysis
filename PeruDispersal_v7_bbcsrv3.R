@@ -25,7 +25,7 @@ print(paste("No. cpus=", ncore,
 ## Load pre-processed data file
 ################################################################################
 
-load(file='../data/data4peruanalysisv6.RData')
+load(file='../data/data4peruanalysisv7.RData')
 
 ################################################################################
 ### Subsetting data
@@ -35,15 +35,6 @@ load(file='../data/data4peruanalysisv6.RData')
 hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Unkwn !=1)
  ## univariate
 hyperdat.uni.sel.c <- subset(hyperdat.uni.sel,  Unkwn !=1)
-
-
-## Exploring model fits suggests some species are big outliers in the  bivariate analysis
-## We are removing them here.
-hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c, !((sp.id == 108 & pname=='BM') |
-                                                   (sp.id==314 & pname=='CC2') |
-                                                   (sp.id==38 & pname=='LA') |
-                                                   (sp.id==144 & pname=='LA'))
-)
 
 
 ## Fit models
@@ -75,13 +66,6 @@ allform <- update(formula(intMod.uni[[1]]), NULL~.)
 ## Make model matrix
 modmat.int <-  model.matrix(allform, data=preddat.int)
 
-## Bootstrapping
-system.time(intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi, lin.comb.Ct=modmat.int, nboot=nboot, alpha=0.05,
-                                                  ncore=7))
-
-system.time(intMod.uni.boot <-  bootstrap.t.CI.lme(intMod.uni, lin.comb.Ct=modmat.int, nboot=nsim,
-                                                   alpha=0.05, ncore=7))
-
 
 ## Bootstrapping
 intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi,
@@ -110,7 +94,7 @@ dir.name <- paste0('../results/results_', Sys.Date())
 system(paste('mkdir -p', dir.name))
 
 save(list=objname, file=paste0(dir.name, '/',
-                     paste0("PeruDispersal",
+                     paste0("PeruDispersal_v7",
                              '_rmax', rmax,
                             ".RData")
                      ))

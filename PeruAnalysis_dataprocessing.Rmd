@@ -2,7 +2,7 @@
 title: "Analysis of hunting effects on spatial structure of trees with different dispersers"
 subtitle: "Data preparation"
 author: "Robert Bagchi"
-date: "July 30, 2016"
+date: "12 November, 2016"
 output: html_document
 ---
 
@@ -434,6 +434,20 @@ hyperdat.bi.sel$sp.id <- droplevels(hyperdat.bi.sel$sp.id)
 hyperdat.bi.sel$Spp <- droplevels(hyperdat.bi.sel$Spp)
 ```
 
+Later analysis reveals that some species/site combinations are major outliers in the bivariate analysis. We could remove them in individual analyses, but that starts to get messy and could lead to errors. To deal with this problem once and for all, we remove them here
+```{r removeoutliers}
+## Removing those species now
+hyperdat.bi.sel <- subset(hyperdat.bi.sel, !((sp.id == 108 & pname=='BM') |
+                                                   (sp.id==314 & pname=='CC2') |
+                                                   (sp.id==38 & pname=='LA') |
+                                                   (sp.id==144 & pname=='LA'))
+)
+
+## We can now remove unused levels
+hyperdat.bi.sel$sp.id <- droplevels(hyperdat.bi.sel$sp.id)
+hyperdat.bi.sel$Spp <- droplevels(hyperdat.bi.sel$Spp)
+
+```
 
 ## 4. Finalise datasets
 At this point it is useful to save the objects we have created and are required for analysis so we don't always have to repeat processing and to minimise processing on the cluster. We save our results as a data object.
@@ -441,6 +455,6 @@ At this point it is useful to save the objects we have created and are required 
 ```{r saveobjects}
 save('dispersal', "sitedat", 'hyperdat.uni.sel', 'hyperdat.bi.sel', 
      'ppp.sps.uni', "ppp.sps.bi", 'trees', 'winlist', 'rmax',
-      file='../data/data4peruanalysisv6.RData')
+      file='../data/data4peruanalysisv7.RData')
 ```
 

@@ -40,14 +40,10 @@ export nclust=$NSLOTS
 ## To run the code with default values of noqw and nopl but
 ## resetting nsim and rmax do
 ## qsub -v nsim=999,rmax=10 peruDispersal.sh
-:${noqw:=0}
-:${nopl:=0}
-:${nsim:=99}
+:${nsim:=19}
 :${rmax:=15}
 
 export nsim=$nsim
-export nopl=$nopl
-export noqw=$noqw
 export rmax=$rmax
 
 echo 'number of cpus requested = ' $nclust

@@ -1,9 +1,9 @@
 *.R~
 .Rproj.user
-missingDispData.csv
-saplingplot.pdf
+*.csv
+*.pdf
 *.sh~
 *.o*.?
 *.po*.?
-.RData
-.Rhistory
+*.RData
+*.Rhistory

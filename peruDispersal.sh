@@ -37,16 +37,13 @@ export nclust=$NSLOTS
 
 ## set default values for various variables
 ## these can be overriden from the command line
-## To run the code with default values of noqw and nopl but
+## To run the code after
 ## resetting nsim and rmax do
 ## qsub -v nsim=999,rmax=10 peruDispersal.sh
-:${nsim:=19}
-:${rmax:=15}
-
-export nsim=$nsim
-export rmax=$rmax
+nsim=${nsim:-99}
+rmax=${rmax:-15}
 
 echo 'number of cpus requested = ' $nclust
 
-R CMD BATCH ~/Peru/July2016/PeruAnalysis/PeruDispersal_v7_bbcsrv3.R ~/Peru/July2016/perudisp\_v7\_niter$nsim\_rmax$rmax\.Rout
+R CMD BATCH ~/Peru/July2016/PeruAnalysis/PeruDispersal_v7_bbcsrv3.R ~/Peru/July2016/progreports/perudisp\_v7\_niter$nsim\_rmax$rmax\.Rout
 

@@ -43,14 +43,10 @@ export arrayid=$SGE_TASK_ID
 ## To run the code with default values of noqw and nopl but
 ## resetting nsim and rmax do
 ## qsub -v nsim=999,rmax=10 PeruAnalysisAnova_saps.sh
-${nsim:19}
-${rmax:15}
-
-# export nsim=$nsim
-# export rmax=$rmax
-
+nsim=${nsim:-99}
+rmax=${rmax:-15}
 
 echo 'number of cpus requested = ' $nclust
 
 # execute the R commands in the R script R_script
-R CMD BATCH ~/Peru/July2016/PeruAnalysis/Peru_anovatestsSaps_v7.R ~/Peru/July2016/peru_anovaSaps\_v7\_niter$nsim\_rmax$rmax\_$arrayid.Rout
+R CMD BATCH ~/Peru/July2016/PeruAnalysis/Peru_anovatestsSaps_v7.R ~/Peru/July2016/progreports/peru_anovaSaps\_v7\_niter$nsim\_rmax$rmax\_$arrayid.Rout

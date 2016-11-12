@@ -1,0 +1,446 @@
+---
+title: "Analysis of hunting effects on spatial structure of trees with different dispersers"
+subtitle: "Data preparation"
+author: "Robert Bagchi"
+date: "July 30, 2016"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+options(width=80, digits=3)
+```
+
+
+## 1. Preliminaries
+
+### 1.1 Loading and installing libraries
+
+If you need to install the `ReplicatedPointPatterns` package, you can execute the following code. Note, you need the `devtools` package installed. 
+
+```{r package_install, eval=FALSE}
+devtools::install_github('robertbagchi/ReplicatedPointPatterns')
+```
+
+We can then load all the necessary libraries.
+
+```{r loadlibs, warning=FALSE, message=FALSE}
+rm(list=ls())
+# data organisation
+library(abind)
+
+library(reshape)
+library(tidyr)
+library(dplyr)
+library(broom)
+
+## spatial analysis
+library(spatstat)
+library(ReplicatedPointPatterns)
+
+## plotting
+library(ggplot2)
+library(cowplot)
+library(grid)
+library(gtable)
+```
+
+
+### 1.2 Define some useful functions for this analysis
+
+
+* Function that standardises a vector (standardise)
+* Function to convert K functions to L functions (K2L)
+* Function that takes the output from the model and puts it in a convenient format for plotting (kfunclme2plot)
+* Function that plots the BLUEs against distance (plot.kfunctionlme)
+* Function that plots the coefficient and confidence intervals from a bootstrap (effectplot.Kfunctionlme)
+* Function to extract random effect BLUPs to allow plotting (extractModRanefs)
+* Function to extract residuals and covariates for plotting (plotModResids)
+
+```{r convenienceFuncs}
+source("PeruConvenienceFunctions.R")
+```
+
+## 2. Read in and process data
+
+### 2.1 Read in the data
+```{r loaddata}
+trees <- read.csv("../../data/mdd6plots_data_22jul2016.csv") ## tree locations
+dispersal <-  read.csv("../../data/MDDspp_dispersal_syndromes_22jul2016.csv") ## dispersal data
+sitedat <- read.csv("../../data/sitedata.csv") ## site information
+```
+
+```{r definitions}
+#Define maximum range over which to consider spatial patterns
+rmax <- 15
+```
+
+### 2.2 Data organisation
+
+#### 2.1.1 Organise the dispersal data
+```{r disporg}
+# Put dispersal into 1/0 format by filling in the NAs with 0s
+dispersal[, c('LV', 'SV', 'SB', 'Bat', 'TR', 'Wind', 'Expl', 'Unkwn', 'HSD', 'HID')] <-
+  apply(dispersal[, c('LV', 'SV', 'SB', 'Bat', 'TR', 'Wind', 'Expl', 'Unkwn', 'HSD', 'HID')],
+        2, function(x) ifelse(is.na(x), 0, x))
+# combine wind and explosive dispersal into a single variable
+dispersal$Abiotic <-  dispersal$Wind + dispersal$Expl
+```
+
+#### 2.2.2 Calculate hunting pressure
+Construct hunting pressure variable as the negative sum of the standardised densities of large primates and large birds
+```{r huntprescalc}
+sitedat$hunted <- relevel(sitedat$hunted, 'intact')
+sitedat$huntpres <- with(sitedat, (standardise(lg.primates) + standardise(lg.birds))*(-1))
+sitedat[order(sitedat$pname),] ## take a quick look
+```
+
+#### 2.2.3 Organise spatial pattern data
+
+Need to deal with colocated points and remove stems that are 
+a.  palms,  
+b. unidentified (spcode = -999)
+c. have no dispersal data
+d. Juveniles > 5 cm dbh
+
+We also remove from the bivariate analysis species without at least one individual in each cohort (adults, juveniles and saplings) in the central ha of the site and  from the univariate analysis species with have <2 juveniles or saplings in the central ha of a site
+
+```{r spporg}
+# First deal with duplicated points (same site, coordinates, code and Type) -
+# sometimes these have different tags, but for our purposes, 2 points at the
+# same location cause problems, so we add a little bit of noise to them
+# (less than the resolution of the original data)
+dups <- duplicated(trees[,c('Site', 'E', 'N', 'code', 'Type')])
+sum(dups)## a total of 102 such points out of 67000, so not many
+trees$E[dups]  <-  trees$E[dups] + runif(sum(dups), -0.1, 0.1)
+trees$N[dups]  <-  trees$N[dups] + runif(sum(dups), -0.1, 0.1)
+
+trees.old <- trees ## make a copy for comparison later on
+## Remove palms
+trees <-trees[-c(grep('Astrocaryum', trees$Spp),
+                 grep('Attalea', trees$Spp),
+                 grep('Iriartea', trees$Spp),
+                 grep("Chamaedorea", trees$Spp)),] ## removing palms
+
+nrow(trees.old) - nrow(trees) ## lose 3727 palms
+
+
+## remove unidentified stems
+sum(trees$code==-999) ## removes 7154 unidentified stems
+trees <-  trees[trees$code != -999,] 
+nrow(trees) ## leaves us with 55870 stems
+
+## now remove juveniles between 5-10 cm
+## there are a few stems with missing dbh data - remove them too
+trees <- trees[!(trees$diam > 5 & trees$Type=='J'),]
+trees <- trees[!is.na(trees$Type),]
+nrow(trees) ## lose 3008 stems. Seems relatively minor.
+
+## Now get the abundance of each species x type x site combination
+## and merge it into the dataset
+abund <- aggregate(Tag ~ Spp + code + Type + Site, data=trees, length)
+names(abund)[5] <- 'abund'
+
+abund <- spread(abund, Type, abund, fill=0)
+names(abund)[4:6] <- paste('N', names(abund[4:6]), sep='.')
+abund$hasdisp <- abund$code %in% dispersal$code
+## now working out if there is enough replication at each 
+## species and site combination for 
+
+abund$Quni <- abund$N.S > 1 & abund$N.J > 1 & abund$hasdisp
+abund$Qbi <- abund$N.A > 0 & abund$N.J > 0 & abund$N.S > 0 & abund$hasdisp
+
+## Some preliminary numbers of how many stems and species qualify
+sum(abund$Quni); sum(abund$Qbi) ## 601 & 624 species
+apply(abund[abund$Quni, c('N.J', 'N.S')], 2, sum) ## 17470 juvs and 9709 saps 
+apply(abund[abund$Qbi, c('N.A', 'N.J', 'N.S')], 2, sum) ## 9667 ads 18570 juvs and 8854 saps 
+
+
+trees <- merge(trees, abund, by=c('Spp', 'code', 'Site'), all =T)
+trees$Spp <- droplevels(trees$Spp)
+nlevels(trees$Spp)
+summary(trees)
+```
+
+
+### 2.3 Calculate the K functions
+
+Define the plot boundaries
+
+```{r plotbounds}
+## defining the window at CC12 which is not quite rectangular
+cc12  <- owin(poly=list(x=c(225, 75, 75, 24.9, 25, 0, 0, 225),
+                        y= c(200, 200, 125, 125, 75, 75, 0, 0)))
+
+## defining a list of windows for each site
+## Each comprises of a window for each size class.
+winlist <- list(BM=list(A=owin(c(0, 200), c(0, 200)),
+                        J=owin(c(50, 150), c(50, 150)),
+                        S=owin(c(50, 150), c(50, 150))),
+                CashuTr12=list(A=cc12,
+                               J=owin(c(75, 175), c(50, 150)),
+                               S=owin(c(75, 175), c(50, 150))),
+                CashuTr3=list(A=owin(c(0, 200), c(0, 200)),
+                              J=owin(c(55, 145), c(55, 145)),
+                              S=owin(c(55, 145), c(55, 145))),
+                LA=list(A=owin(c(0, 200), c(0, 200)),
+                        J=owin(c(50, 150), c(50, 150)),
+                        S=owin(c(50, 150), c(50, 150))),
+                RA=list(A=owin(c(0, 200), c(0, 200)),
+                        J=owin(c(50, 150), c(50, 150)),
+                        S=owin(c(50, 150), c(50, 150))),
+                TRC=list(A=owin(c(0, 200), c(0, 200)),
+                         J=owin(c(50, 150), c(50, 150)),
+                         S=owin(c(50, 150), c(50, 150))))
+
+par(mfrow=c(2,3))
+lapply(winlist, function(x) { plot(x$A, axes=T, asp=1)
+  plot(x$J, add=T, border=2)}) ## looks ok
+```
+
+Split the data by site and pull out species lists
+
+```{r sitesplit}
+trees <- split(trees, f=trees$Site)
+
+## Pull out some summary stats
+sapply(trees, nrow)
+sapply(trees, function(x) length(unique(x$Spp)))
+
+## make a species list for each plot (based on the species that have sufficient
+## stems in each size class 
+## Univariate analysis
+splists.uni <- lapply(trees, function(dat) unique(dat$code[dat$Quni]))
+
+## bivariate analysis
+splists.bi <- lapply(trees, function(dat) unique(dat$code[dat$Qbi]))
+```
+
+Turn the data from each species into a point pattern, split up by age class
+A few adult points in CC12 are right on the boundary and this leads to the warnings below, which we deal with in the final function which removes species where this is a problem from the analysis.
+
+```{r pointpatterns}
+ppp.sps.uni <- mapply(function(spid, treedat, win){
+  ppp.sp <- lapply(as.list(spid), function(id, treedat, win){
+    treedat <- droplevels(treedat[treedat$Type !='A',])
+    win <- win[c('J', 'S')]
+    condat <- treedat[treedat$code==id,] ## subset data from species
+    ppp.con <- mapply(function(Tx, Wx){ ## turn into ppp object
+      pppx <- ppp(x=Tx$E, y=Tx$N, window=Wx)
+      return(pppx)}, Tx=split(condat, f=condat$Type), Wx=win, SIMPLIFY=FALSE)
+    ## note that species are split by size-class (Type) when input to the function
+    ## now heterospecifics
+    hetdat <- treedat[treedat$code!=id,] ## subset out all heterspecifics
+    ## Note that this will include species
+    ## not included in elsewhere in the analysis
+    ppp.het <- mapply(function(Tx, Wx){
+      Tx <- Tx[!duplicated(Tx[,c('E', 'N')]),] ## remove colocated stems
+      pppx <- ppp(x=Tx$E, y=Tx$N, window=Wx)
+      
+      return(pppx)}, Tx=split(hetdat, f=hetdat$Type), Wx=win, SIMPLIFY=FALSE)
+    names(ppp.het) <- paste(names(ppp.het), 'h', sep='') ## add 'h' suffix to het names
+    ppp.sp <- c(ppp.con, ppp.het) ## combine cons and hets
+    return(ppp.sp)},
+    treedat=treedat, win=win)
+  names(ppp.sp) <- spid
+  return(ppp.sp)
+}, spid=splists.uni, treedat=trees, win=winlist, SIMPLIFY=FALSE)
+
+## Now for the bivariate case.
+ppp.sps.bi <- mapply(function(spid, treedat, win){
+  ppp.sp <- lapply(as.list(spid), function(id, treedat, win){
+    condat <- treedat[treedat$code==id,] ## subset data from species
+    ppp.con <- mapply(function(Tx, Wx){ ## turn into ppp object
+      pppx <- ppp(x=Tx$E, y=Tx$N, window=Wx)
+      return(pppx)}, Tx=split(condat, f=condat$Type), Wx=win, SIMPLIFY=FALSE)
+    ## note that species are split by size-class (Type) when input to the function
+    ## now heterospecifics
+    hetdat <- treedat[treedat$code!=id,] ## subset out all heterspecifics
+    ## Note that this will include species
+    ## not included in elsewhere in the analysis
+    ppp.het <- mapply(function(Tx, Wx){
+      Tx <- Tx[!duplicated(Tx[,c('E', 'N')]),] ## remove colocated stems
+      pppx <- ppp(x=Tx$E, y=Tx$N, window=Wx)
+      
+      return(pppx)}, Tx=split(hetdat, f=hetdat$Type), Wx=win, SIMPLIFY=FALSE)
+    names(ppp.het) <- paste(names(ppp.het), 'h', sep='') ## add 'h' suffix to het names
+    ppp.sp <- c(ppp.con, ppp.het) ## combine cons and hets
+    return(ppp.sp)},
+    treedat=treedat, win=win)
+  names(ppp.sp) <- spid
+  return(ppp.sp)
+}, spid=splists.bi, treedat=trees, win=winlist, SIMPLIFY=FALSE)
+
+
+## Remove species with adults only on the edge of the plot
+ppp.sps.bi <-  
+  lapply(ppp.sps.bi, function(site.dat){
+    site.dat[sapply(site.dat, function(sp.dat){
+      npoints(sp.dat$A[dilation(Window(sp.dat$J), 15)])}) > 0]})
+```
+
+## 3. K function calculations
+We can now calculate the K functions for both the univariate and bivariate analyses. 
+
+### 3.1 Univariate K functions
+
+The code below constructs a hyperframe (see the spatstat package) which includes the covariates, point patterns and K functions in a single object. 
+```{r univariate_kfuncs}
+hyperdat.uni  <- mapply(function(dat, win, sitenms)
+    {
+
+        hyper <- hyperframe(
+          site=sitenms,
+          sp.id = rep(names(dat), 2), ## 2 times for S+J
+          stage = factor(rep(c('S', 'J'), each=length(dat)), levels=c('S', 'J')),
+          pppx=c(lapply(dat, function(x) x$S),
+                 lapply(dat, function(x) x$J)),
+          pppy=c(lapply(dat, function(x) x$Sh),
+                 lapply(dat, function(x) x$Jh))
+        )
+        ## Add site data
+        hyper <- cbind.hyperframe(hyper,
+          sitedat[match(hyper$site, sitedat$site),
+                  c('forest', 'pname', 'hunted', 'lg.primates', 'lg.birds', 'huntpres')])
+        
+        hyper$N1 <- sapply(hyper$pppx, npoints) # no. conspecifics
+        hyper$N2 <- sapply(hyper$pppy, npoints) # no. heterospecifics
+      
+        # Add dispersal data
+        hyper <- cbind.hyperframe(hyper,
+                                  dispersal[match(hyper$sp.id, dispersal$code),
+                                            c('Spp', 'LV', 'SV', 'SB', 'Bat',
+                                              'TR', 'Wind', 'Expl',
+                                              'Unkwn', 'Abiotic', 'HSD', 'HID')])
+        ## Concpecific K function
+        Kcon <- with(hyper, Kest(pppx, r=0:rmax, correction="border", 
+                                    ratio=TRUE))
+        ## Heterospecific K function
+        ppp.s <- with(hyper, superimpose(i=pppx, j=pppy, W=pppy$window))
+        Khet <- lapply(ppp.s, function(ppp.s)
+          Kmulti(ppp.s, I=marks(ppp.s)=='i', J= marks(ppp.s)=='j',
+                 r=0:rmax, correction="border", ratio=TRUE))
+        
+        ## Correct conspecific K function for inhomogeneities in
+        ## overall tree density by subtracting Khet from Kcon
+        hyper$K <-  mapply(function(conK, hetK){
+          K <- conK
+          K$border <- conK$border - hetK$border
+          K$theo <- conK$theo - hetK$theo
+          return(K)}, conK=Kcon, hetK=Khet, SIMPLIFY=FALSE)
+      
+        hyper$wts <-  lapply(hyper$pppx, function(pppx)
+            kfunc.weights.calc(pppx=pppx, r=0:rmax,
+                               correction='border', type='sqrtnxny_A'))
+                            
+        return(hyper)
+    }, dat = ppp.sps.uni, win=winlist, sitenms=as.list(names(ppp.sps.uni)), 
+    SIMPLIFY=FALSE)
+```
+
+We now do a final cut of species x site combinations with insufficient data. Even if there are enough points, too many individuals may be on the border and so are removed when border corrections are applied. We need at least one individual within the inner (minus-sampled) region. The easiest
+way to do this is to find `NAs` in the K functions and remove them 
+<!-- way to do this is run the models because the function has an inbuilt algorithm that discards species with fewer individuals than a given cut-off. -->
+
+```{r selectspeciesuni, warnings=FALSE}
+## First look for any NAs in the Kfunctions - which is a clue of insufficient data
+rmlist <- lapply(hyperdat.uni, function(d)
+  d$sp.id[sapply(d$K, function(dk) any(is.na(dk$border)))])
+
+hyperdat.uni.sel <- mapply(function(dat, sprm){
+  dat <- dat[!(dat$sp.id %in% sprm),]
+  return(dat)}, dat=hyperdat.uni, sprm=rmlist, 
+  SIMPLIFY=FALSE) 
+
+
+## gives us the number of speciesxsite combinations and for each site.
+sum(sapply(hyperdat.uni.sel, function(x) length(unique(x$Spp))))
+sapply(hyperdat.uni.sel, function(x) length(unique(x$Spp)))
+
+## make one hyperframe with all the data
+hyperdat.uni.sel <- do.call('rbind', hyperdat.uni.sel)
+## We can now remove unused levels
+hyperdat.uni.sel$sp.id <- droplevels(hyperdat.uni.sel$sp.id)
+hyperdat.uni.sel$Spp <- droplevels(hyperdat.uni.sel$Spp)
+summary(hyperdat.uni.sel)
+```
+
+
+### 3.2 Bivariate K-functions
+
+The bivariate calculations are similar to the univariate ones, except we are now interested in adult neighbours.
+
+```{r bivariate_kfuncs}
+hyperdat.bi  <- mapply(function(dat, sitenms)
+{
+  hyper <- hyperframe(
+    site = sitenms,  
+    sp.id = rep(names(dat), 2), ## 2 times for S+J 
+    stage = factor(rep(c('S', 'J'), each=length(dat)), levels=c('S', 'J')),
+    pppx=c(lapply(dat, function(x) x$S),
+           lapply(dat, function(x) x$J)),
+    pppy = rep(lapply(dat, function(x) x$A), 2),
+    ppphet = rep(lapply(dat, function(x) x$Ah), 2)
+  )
+  
+  hyper <- cbind.hyperframe(hyper,
+                            sitedat[match(hyper$site, sitedat$site),
+                                    c('forest', 'pname', 'hunted', 
+                                      'lg.primates', 'lg.birds', 'huntpres')])
+  
+  hyper$N1 <- sapply(hyper$pppx, npoints)
+  hyper$N2 <- sapply(hyper$pppy, npoints)
+  
+  hyper <- cbind.hyperframe(hyper,
+                            dispersal[match(hyper$sp.id, dispersal$code),
+                                      c('Spp', 'LV', 'SV', 'SB', 'Bat', 'TR',
+                                        'Wind', 'Expl',
+                                        'Unkwn', 'Abiotic','HSD', 'HID')])
+  ppp.s <- with(hyper, superimpose(i=pppx, j=pppy, W=pppy$window))
+  
+  Kcon <- lapply(ppp.s, function(x)
+    Kmulti(x, I=x$marks =='i', J=x$marks=='j',
+           r=0:rmax, corr='border', ratio=TRUE))
+  
+  ppp.het <- with(hyper, superimpose(i=pppx, j=ppphet, W=ppphet$window))
+  Khet <- lapply(ppp.het, function(x)
+    Kmulti(x, I=x$marks =='i', J=x$marks=='j',
+           r=0:rmax, corr='border', ratio=TRUE))
+  hyper$K <- mapply(function(conK, hetK){
+    K <- conK
+    K$border <- conK$border - hetK$border
+    K$theo <- conK$theo - hetK$theo
+    return(K)}, conK=Kcon, hetK=Khet, SIMPLIFY=FALSE)
+  
+  hyper$wts <-  mapply(function(pppx, pppy)
+    kfunc.weights.calc(pppx=pppx, pppy=pppy, r=0:rmax,
+                       correction='border', type='sqrtnxny_A'),
+    pppx=hyper$pppx, pppy=hyper$pppy, SIMPLIFY=FALSE)
+  
+  return(hyper)
+}, dat=ppp.sps.bi, sitenms=as.list(names(ppp.sps.bi)),
+SIMPLIFY=FALSE)
+
+hyperdat.bi <- do.call('rbind', hyperdat.bi)
+summary(hyperdat.bi)
+```
+
+
+Because we are using plus-sampling rather than minus-sampling for the bivariate analysis, we don't need to do a final cut of speices as we did in the univariaten case. Howeever, one species, *Unonopsis floribunda* seems to cause problems(sp.id 729) at one site, CC2. We Remove that manually.
+
+```{r removeUfloribundaCC2}
+hyperdat.bi.sel <- subset(hyperdat.bi, !(sp.id=="729" & pname=='CC2'))
+## We can now remove unused levels
+hyperdat.bi.sel$sp.id <- droplevels(hyperdat.bi.sel$sp.id)
+hyperdat.bi.sel$Spp <- droplevels(hyperdat.bi.sel$Spp)
+```
+
+
+## 4. Finalise datasets
+At this point it is useful to save the objects we have created and are required for analysis so we don't always have to repeat processing and to minimise processing on the cluster. We save our results as a data object.
+
+```{r saveobjects}
+save('dispersal', "sitedat", 'hyperdat.uni.sel', 'hyperdat.bi.sel', 
+     'ppp.sps.uni', "ppp.sps.bi", 'trees', 'winlist', 'rmax',
+      file='../data/data4peruanalysisv6.RData')
+```
+

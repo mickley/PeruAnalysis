@@ -3,7 +3,7 @@
 ### Version: 6
 ### Author: Robert Bagchi
 ### Email: robert.bagchi@uconn.edu
-### Date last modified: 22 July 2016
+### Date last modified: 29 July 2016
 ### Description: Code to analyse spatial patterns of saplings and juvenile
 ### trees in six Peruvian forests plots subjected to varying levels of
 ### defaunation. This is the version used immediately
@@ -15,13 +15,15 @@
 ################################################################################
 rm(list=ls())
 
-
+library(abind)
 library(spatstat)
 library(ggplot2)
 library(cowplot)
 library(grid)
 library(gtable)
 library(reshape)
+library(tidyr)
+library(dplyr)
 ## if you need to install ReplicatedPointPatterns 
 ## (note you need devtools installed)
 ##devtools::install_github('robertbagchi/ReplicatedPointPatterns')
@@ -83,6 +85,50 @@ extractModRanefs <-  function(mod, level=1){
                                           strsplit(as.character(ranefs$variable), split='.', fixed=T))[,2])
     return(ranefs)
 }
+
+
+plotModResids <-  function(mod){
+  require(tidyr)
+  
+  resids<- do.call('cbind', lapply(mod, function(mod) resid(mod)))
+  summary(resids)
+  nms <- names(attr(mod[[1]]$terms, 'dataClasses'))
+  nms <- nms[nms!='K']
+  dat <- mod[[1]]$data[,nms]
+  
+  colnames(resids)[1:length(mod)] <-  paste('distance', 1:length(mod), sep='.')
+  resids <- tbl_df(cbind(dat, labs =rownames(resids), resids))
+  resids <- gather_(resids, "distance", "resid", paste0('distance.', 1:15))
+  
+  resids <- separate(resids, distance, c('d', 'distance'), '[.]') %>%
+    separate(labs, c('site', 'species'), '/')
+  resids$distance <- as.numeric(resids$distance)
+  return(resids)
+  
+}
+
+## a function that plots the coefficient and confidence intervals
+## from a bootstrap
+effectplot.Kfunctionlme <- function(bootobj){
+  dat <- bootobj$modelpars
+  require(broom)
+  require(tidyr)
+  dat <-  tidy(t(as.data.frame(dat)))
+  names(dat)[1] <- 'labels'
+  dat <- separate(dat, labels, into=c("distance", "term"),sep="[.]")
+  
+  dat$distance <- as.numeric(as.character(dat$distance))
+  dat$term <- factor(dat$term)
+  dat$term <- factor(dat$term, levels=levels(dat$term)[order(
+    sapply(levels(dat$term), function(x) 
+      length(strsplit(x, split=":", fixed=T)[[1]])))])
+  
+  ggplot(dat, aes(x=distance, y=estimate, ymin=X2.5., ymax=X97.5.)) +
+    geom_ribbon(colour=NA, alpha=0.3) + geom_line() + 
+    geom_hline(yintercept=0, linetype='dotted') + facet_wrap(~term, scale='free')
+}
+
+
 
 
 ################################################################################
@@ -168,7 +214,7 @@ abund <- aggregate(Tag ~ Spp + code + Type + Site, data=trees, length)
 summary(abund)
 names(abund)[5] <- 'abund'
 
-library(tidyr)
+
 abund <- spread(abund, Type, abund, fill=0)
 names(abund)[4:6] <- paste('N', names(abund[4:6]), sep='.')
 abund$hasdisp <- abund$code %in% dispersal$code
@@ -589,10 +635,9 @@ aggregate(N2 ~ stage*comp, hyperdat.bi.sel.c,  sum)
 ## For analysis excluding P. laevis need to uncomment these lines
  # hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c,
  #                             !(Spp == 'Pseudolmedia laevis'))
- # 
- # hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c,
- #                             !(Spp == 'Pseudolmedia laevis'))
- # 
+  
+hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c,
+                             !(Spp == 'Pseudolmedia laevis' & site=='RA'))
 
 ## Fitting the models
 
@@ -626,6 +671,11 @@ sapMod.uni <- lmeHyperframe(hyperdat.uni.sap.c, 0:rmax,
                          random="1|site/Spp",
                          computeK=FALSE)
 
+sapMod.uni <- lmeHyperframe(testdat, 0:rmax,
+                            fixed="huntpres*HSD",
+                            random="1|site/Spp",
+                            computeK=FALSE)
+
 # sapMod.uni <- lmeHyperframe(hyperdat.uni.sap.c, 0:25,
 #                             fixed="comp*hunted*HSD",
 #                             random="1|site/Spp",
@@ -637,6 +687,9 @@ preddat.sap <-  expand.grid(stage=c('S'), comp=c('con', 'het'),
                             huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
                             HSD = c(0, 1))
 
+# preddat.sap <-  expand.grid(stage=c('S'), comp=c('con', 'het'),
+#                             huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
+#                             LV=c(0, 1), SV=c(0, 1))
 # preddat.sap <-  expand.grid(stage=c('S'), comp=c('con', 'het'),
 #                             hunted=c('intact', 'hunted'),
 #                             HSD = c(0, 1))
@@ -653,6 +706,51 @@ sapMod.bi.boot <-  bootstrap.t.CI.lme(sapMod.bi, lin.comb.Ct=modmat.sap, nboot=n
 
 sapMod.uni.boot <-  bootstrap.t.CI.lme(sapMod.uni, lin.comb.Ct=modmat.sap, nboot=nsim,
                                        alpha=0.05, ncore=7)
+
+effectplot.Kfunctionlme(sapMod.uni.boot)
+## suggests that there is some clustering, that is unaffected by 
+## hunting pressure (when P laevis is left out).
+siteranefs <- tbl_df(extractModRanefs(sapMod.uni))
+siteranefs$hunted <- sitedat$hunted[match(siteranefs$id, sitedat$site)]
+siteranefs$huntpres <- sitedat$huntpres[match(siteranefs$id, sitedat$site)]
+library(ggrepel)
+siteranefs %>% ggplot(aes(x=huntpres, y=value)) + geom_line() + geom_point(aes(col=id)) +
+    facet_wrap(~distance, scale='free')
+## looks pretty good - especially given that there are only 6 levels
+## There could be some slight nonlinearity, but don't want to overfit.
+spranefs <- tbl_df(extractModRanefs(sapMod.uni, level=2))
+spranefs <- spranefs %>% separate(id, c("site", "sp"), "[/]") 
+spranefs$hunted <- sitedat$hunted[match(spranefs$site, sitedat$site)]
+spranefs$HSD <- dispersal$HSD[match(spranefs$sp, dispersal$Spp)]
+spranefs %>% ggplot(aes(x=HSD, y=value, colour=hunted, group=hunted)) + geom_point() + 
+  geom_smooth() +  facet_wrap(~distance, scale='free')
+
+## no strong trends here. There doesn't look like there are any strong trends 
+## in any of these plots. 
+
+effectplot.Kfunctionlme(sapMod.uni.boot)
+
+resids.uni <- plotModResids(sapMod.uni)
+resids.uni$huntpres <- round(resids.uni$huntpres, 1)
+summary(resids.uni)
+resids.uni %>% ggplot(aes(x=distance, y=resid, colour=HSD, group=comp)) +
+  facet_wrap(~huntpres, 1) + geom_point()
+## no real trend here, even if there are some big outliers
+
+resids.uni %>% ggplot(aes(x=HSD, y=resid, colour=huntpres, group=comp)) +
+  facet_wrap(~distance)  + geom_smooth()
+## once again, no real problems here.
+summary(resids.uni)
+resids.uni %>% ggplot(aes(x=huntpres, y=resid, group=comp, linetype=comp, shape=comp)) +
+  facet_wrap(~distance)  + geom_smooth(method = "lm", formula = y ~ splines::bs(x, 3)) +
+  geom_point(data=aggregate(resid ~ distance + comp + site + huntpres, data=resids.uni, mean), 
+             aes(colour=site), size=2)
+
+
+## There is some non-linearity here - suggesting that trees are a little more aggregated 
+## in TRC than the models predict. However shouldn''t really force the line through a single
+## site.
+
 
 ## ## Extract data for plot (redundant because later plot including juveniles
 ## includes both cohorts - however helpful for initial analysis

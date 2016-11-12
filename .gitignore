@@ -7,3 +7,4 @@
 *.po*.?
 *.RData
 *.Rhistory
+*.html

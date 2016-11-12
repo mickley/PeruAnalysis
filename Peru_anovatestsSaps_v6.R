@@ -8,7 +8,9 @@ library(ReplicatedPointPatterns)
 print(paste('code run on', Sys.Date()))
 rseed <- 1234 ## set the seed for reproducibility
 
-## nopl <- 0; noqw <- 0; intlevel <- 2; ncore <- 3; nboot <- 5
+## nopl <- 0; noqw <- 0;
+## intlevel <- 2; rmax <- 10
+## ncore <- 3; nboot <- 5
 nopl <- as.numeric(Sys.getenv('nopl')) ## exclude Pseudolmedia laevis?
 noqw <- as.numeric(Sys.getenv('noqw')) ## exclude Quarribea wittii?
 intlevel <- as.numeric(Sys.getenv('arrayid')) ## interaction level
@@ -64,6 +66,7 @@ if(intlevel > 1)
 ## Define terms to assess
 terms <- apply(combn(covs, intlevel), 2, paste, collapse=':')
 terms <- as.list(terms[grep('comp', terms)])
+print(terms)
 
 intMod.bi <- lmeHyperframe(hyperdat.bi.saps.c, 0:rmax,
                                 fixed=fixform,
@@ -83,7 +86,7 @@ tests.uni <- lapply(terms, function(term) {
          iseed=rseed)
        )})
 
-tests.uni <- list(anovas=tests.uni, model=intMod.uni, type=type)
+tests.uni <- list(anovas=tests.uni, model=intMod.uni)
 
 tests.bi <- lapply(terms, function(term){
     list(

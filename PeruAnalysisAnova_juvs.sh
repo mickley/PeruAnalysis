@@ -40,8 +40,8 @@ export arrayid=$SGE_TASK_ID
 
 ${nsim:19}
 ${rmax:15}
-export nsim=$nsim
-export rmax=$rmax
+# export nsim=$nsim
+# export rmax=$rmax
 
 
 echo 'number of cpus requested = ' $nclust

@@ -704,9 +704,6 @@ dev.off()
 Now formal anova type tests
 
 ```{r fullmodel_anova}
-nsim <- 99
-
-
 
 anova3wayint <-
     bootstrap.compare.lme(intMod.uni, term="stage:huntpres:HSD",

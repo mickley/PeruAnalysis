@@ -58,7 +58,7 @@ intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,
 tests.uni <- lapply(terms, function(term) {
     list(
          'dtable' =  bootstrap.compare.lme(mods = intMod.uni,
-           term=term, dists=1:rmax,
+           term=term, dists=list(1:rmax, 1:5, 1:10, 5:10),
            nboot=nboot, ncore=ncore,
            iseed=rseed)
          )})
@@ -69,7 +69,8 @@ tests.bi <- lapply(terms, function(term){
   list(
        'dtable' = bootstrap.compare.lme(mods = intMod.bi,
          term=term,
-         dists=1:rmax, nboot=nboot, ncore=ncore, iseed=rseed)
+         dists=list(1:rmax, 1:5, 1:10, 5:10),
+         nboot=nboot, ncore=ncore, iseed=rseed)
        )})
 
 anovaJuvs <- list('uni' = tests.uni, 'bi' = tests.bi,

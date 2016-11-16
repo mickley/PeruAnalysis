@@ -102,7 +102,7 @@ b. unidentified (spcode = -999)
 c. have no dispersal data
 d. Juveniles > 5 cm dbh
 
-We also remove from the bivariate analysis species without at least one individual in each cohort (adults, juveniles and saplings) in the central ha of the site and  from the univariate analysis species with have <2 juveniles or saplings in the central ha of a site
+We also remove from the bivariate analysis species without at least two individuals in each cohort (adults, juveniles and saplings) in the central ha of the site and  from the univariate analysis species which have <2 juveniles or saplings in the central ha of a site
 
 ```{r spporg}
 # First deal with duplicated points (same site, coordinates, code and Type) -
@@ -147,12 +147,12 @@ abund$hasdisp <- abund$code %in% dispersal$code
 ## species and site combination for 
 
 abund$Quni <- abund$N.S > 1 & abund$N.J > 1 & abund$hasdisp
-abund$Qbi <- abund$N.A > 0 & abund$N.J > 0 & abund$N.S > 0 & abund$hasdisp
+abund$Qbi <- abund$N.A > 1 & abund$N.J > 1 & abund$N.S > 1 & abund$hasdisp
 
 ## Some preliminary numbers of how many stems and species qualify
-sum(abund$Quni); sum(abund$Qbi) ## 601 & 624 species
+sum(abund$Quni); sum(abund$Qbi) ## 601 & 437 species
 apply(abund[abund$Quni, c('N.J', 'N.S')], 2, sum) ## 17470 juvs and 9709 saps 
-apply(abund[abund$Qbi, c('N.A', 'N.J', 'N.S')], 2, sum) ## 9667 ads 18570 juvs and 8854 saps 
+apply(abund[abund$Qbi, c('N.A', 'N.J', 'N.S')], 2, sum) ## 8820 ads 14093 juvs and  7942 saps 
 
 
 trees <- merge(trees, abund, by=c('Spp', 'code', 'Site'), all =T)
@@ -425,22 +425,18 @@ summary(hyperdat.bi)
 ```
 
 
-Because we are using plus-sampling rather than minus-sampling for the bivariate analysis, we don't need to do a final cut of speices as we did in the univariaten case. Howeever, one species, *Unonopsis floribunda* seems to cause problems(sp.id 729) at one site, CC2. We Remove that manually.
+Because we are using plus-sampling rather than minus-sampling for the bivariate analysis, we don't need to do a final cut of speices as we did in the univariaten case. 
 
-```{r removeUfloribundaCC2}
-hyperdat.bi.sel <- subset(hyperdat.bi, !(sp.id=="729" & pname=='CC2'))
-## We can now remove unused levels
-hyperdat.bi.sel$sp.id <- droplevels(hyperdat.bi.sel$sp.id)
-hyperdat.bi.sel$Spp <- droplevels(hyperdat.bi.sel$Spp)
-```
+
 
 Later analysis reveals that some species/site combinations are major outliers in the bivariate analysis. We could remove them in individual analyses, but that starts to get messy and could lead to errors. To deal with this problem once and for all, we remove them here
 ```{r removeoutliers}
 ## Removing those species now
-hyperdat.bi.sel <- subset(hyperdat.bi.sel, !((sp.id == 108 & pname=='BM') |
-                                                   (sp.id==314 & pname=='CC2') |
-                                                   (sp.id==38 & pname=='LA') |
-                                                   (sp.id==144 & pname=='LA'))
+hyperdat.bi.sel <- subset(hyperdat.bi, !((sp.id == 108 & pname=='BM') |
+                                               (sp.id==314 & pname=='CC2') |
+                                               (sp.id==38 & pname=='LA') |
+                                               (sp.id==144 & pname=='LA') |
+                                               (sp.id==226 & pname=="CC2"))
 )
 
 ## We can now remove unused levels

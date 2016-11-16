@@ -79,7 +79,7 @@ theme_cust <- theme(axis.text = element_text(size=7),
 We load the data that have been processed in another script. These same data can also be used on the cluster for more extensive simulations.
 
 ```{r loaddata}
-load(file='../data/data4peruanalysisv6.RData')
+load(file='../data/data4peruanalysisv7.RData')
 
 ## remove species with unknown dispersal
 hyperdat.bi.sel.c <- subset(hyperdat.bi.sel, Unkwn !=1) ## Bivariate
@@ -88,7 +88,7 @@ hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1) ## Univariate
 
 Set number of iterations for bootstrapping - keep small for trials (takes a long time). The code was run on a HPC for paper
 ```{r setpars}
-nsim <- 99
+nsim <- 19
 rmax ## double check  value set in previous code
 ```
 
@@ -165,40 +165,22 @@ resids.uni %>% ggplot(aes(x=HSD, y=resid, colour=huntpres)) +
 ## residual K-functions - with species labels to idenify outliers
 ggplot(data=resids.uni, aes(x=distance, y=resid, colour=HSD, group=species)) +
        geom_line() +
-  geom_label(data=subset(resids.uni, distance ==23), 
+  geom_label(data=subset(resids.uni, distance ==13), 
                                  aes(label=paste(sp.id, species), x=distance, y=resid), size=3) +
   facet_wrap(~site) + 
    theme_bw()
-
 ```
  
 Looks pretty good overall. There are some biggish outliers, especially *Matisia cordata* (sp.id 764) at LA, an unidentified myrtac (sp.id 446) at RA and *Pourouma minor* (562) and *Matisia rhombifolia* (411) at TRC. Let us take a look at these species:
 
-`r subset(hyperdat.uni.sap, sp.id %in% c(764, 446, 562, 411))`
+`r subset(hyperdat.uni.sap, sp.id %in% c(764, 446, 562, 411), select=c('sp.id', 'Spp', 'N1', 'pname'))`
 
-These species are generally relatively rare (see the N1 column), so probably have little effect on the analyisis. 
-
-
-```{r unimodel2, eval=FALSE}
-
-# ## remove the offending species
-# hyperdat.uni.sap2 <- subset(hyperdat.uni.sap, !((sp.id == 764 & pname=='LA') |
-#                                                 (sp.id==446 & pname=='RA') |
-#                                                 (sp.id==562 & pname=='TRC') |
-#                                                 (sp.id==411 & pname=='TRC')))
-# ## refit the model
-# sapMod.uni2 <- lmeHyperframe(hyperdat.uni.sap2, 0:rmax,
-#                          fixed="huntpres*HSD",
-#                          random="1|site",
-#                          computeK=FALSE)
-
-```
+These species are generally relatively rare at the sites where they are outliers (see the N1 column), so probably have little effect on the analyisis. 
 
 
 #### 2.2.3 Calculate confidence intervals
 
 ```{r unimodel_confints}
-
 ## First make the model matrix
 preddat.sap <-  expand.grid(stage=c('S'),
                             huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
@@ -210,6 +192,9 @@ modmat.sap <-  model.matrix(sapform, data=preddat.sap) ## make model matrix
 ## Bootstrapping
 sapMod.uni.boot <-  bootstrap.t.CI.lme(sapMod.uni, lin.comb.Ct=modmat.sap, nboot=nsim,
                                        alpha=0.05, ncore=7)
+
+## Quick plot of results
+effectplot.Kfunctionlme(sapMod.uni.boot)
 ```
 
 
@@ -226,6 +211,8 @@ sapMod.bi <- lmeHyperframe(hyperdat.bi.sap, 0:rmax,
                          fixed="huntpres*HSD",
                          random="1|site",
                          computeK=FALSE)
+
+
 ## can ignore the warninig - eventually the code will suppress this warning for distance=0
 ```
 
@@ -245,6 +232,16 @@ siteranefs %>% ggplot(aes(x=huntpres, y=value)) + geom_smooth(method='gam', meth
 siteranefs %>% ggplot(aes(sample=value)) + geom_qq() + 
     facet_wrap(~distance, scale='free') + theme_tufte()
 
+par(mfrow=c(1,1))
+plot(as.numeric(names(sapMod.bi)), 
+     sapply(sapMod.bi, function(mod){ 
+       v <- VarCorr(mod)
+       v <- as.numeric(v[, "Variance"])
+       vc <- v[1]/sum(v)
+       return(vc)
+     }), xlab="distance", ylab="Variance proportion")
+
+
 resids.bi <- plotModResids(sapMod.bi)
 ## add data on species names
 resids.bi$species <- rep(hyperdat.bi.sap$Spp, 15)
@@ -263,78 +260,14 @@ resids.bi %>% ggplot(aes(x=HSD, y=resid, colour=huntpres)) +
 ## plotting the residuals with labels to identify the outliers.
 ggplot(data=resids.bi, aes(x=distance, y=resid, colour=HSD, group=species)) +
        geom_line() +
-  geom_label(data=subset(resids.bi, distance ==13), 
                                  aes(label=paste(sp.id, species), x=distance, y=resid), size=3) +
   facet_wrap(~site) + 
    theme_bw()
 
 ```
 
-There appear to be some massive outliers, which are probably worth finding and considering removing. From the figures, the following look problematic:
-*Buchenavia oxycarpa* (sp.id 108) at Boca Manu , *Guazuma crinita*  at CC2 (sp.id = 314) and *Aniba terminalis* (sp.id=38) and *Caryodaphnopsis fosteri* (sp.id 144) at LA. We rerun the model without these four species.
 
-#### 2.3.3 Refitting model without outliers
-```{r bimodel2, fig.height=8}
-## remove the offending species
-hyperdat.bi.sap2 <- subset(hyperdat.bi.sap, !((sp.id == 108 & pname=='BM') |
-                                                (sp.id==314 & pname=='CC2') |
-                                                (sp.id==38 & pname=='LA') |
-                                                (sp.id==144 & pname=='LA'))
-)
-summary(hyperdat.bi.sap2)
-## refit the model
-sapMod.bi <- lmeHyperframe(hyperdat.bi.sap2, 0:rmax,
-                         fixed="huntpres*HSD",
-                         random="1|site",
-                         computeK=FALSE)
-```
-
-
-```{r recheckdiagnostics}
-siteranefs <- tbl_df(extractModRanefs(sapMod.bi))
-
-siteranefs$hunted <- sitedat$hunted[match(siteranefs$id, sitedat$site)]
-siteranefs$huntpres <- sitedat$huntpres[match(siteranefs$id, sitedat$site)]
-
-siteranefs %>% ggplot(aes(x=huntpres, y=value)) + 
-  geom_smooth(method='gam', method.args=list(k=5)) + geom_point(aes(col=id)) +
-    facet_wrap(~distance, scale='free') + theme_bw()
-## Still appears to be very little variatioin among sites.
-
-siteranefs %>% ggplot(aes(sample=value)) + geom_qq() + 
-    facet_wrap(~distance, scale='free') + theme_bw()
-
-## Extract residuals
-resids.bi <- plotModResids(sapMod.bi)
-## add data on species names
-resids.bi$species <- rep(hyperdat.bi.sap2$Spp, 15)
-resids.bi$sp.id <- rep(hyperdat.bi.sap2$sp.id, 15)
-
-
-resids.bi %>% ggplot(aes(x=huntpres, y=resid, colour=HSD)) +
-   facet_wrap(~distance) + 
-   geom_point() + geom_smooth(method='gam', method.args=list(k=4)) +
-   theme_bw()
-
-resids.bi %>% ggplot(aes(x=HSD, y=resid, colour=huntpres)) +
-   facet_wrap(~distance, scale='free') +
-   geom_point() + geom_smooth(method='gam', method.args=list(k=4)) +
-   theme_bw()
-
-ggplot(data=resids.bi, aes(x=distance, y=resid, colour=HSD, group=species)) +
-       geom_line() +
-  geom_label(data=subset(resids.bi, distance ==13), 
-                                 aes(label=paste(sp.id, species), x=distance, y=resid), size=3) +
-  facet_wrap(~site) + 
-   theme_bw()
-## still some outliers, but less crazy than previously
-
-```
-
-We could keep on removing further ouliers (e.g. *Theobroma speciosum* at LA), but probably not productive to keep on pruning the data. It should be remembered that inferences are based on a non-parametric bootstrap, and therefore assumptions of normality etc are not made. However, large outliers will lead to unreasonably large confidence intervals, so worth taking out very extreme values.
-
-
-#### 2.3.4 Estimating the confidence intervals
+#### 2.3.3 Estimating the confidence intervals
 
 ```{r bimodel_confints}
 
@@ -343,9 +276,19 @@ We could keep on removing further ouliers (e.g. *Theobroma speciosum* at LA), bu
 sapMod.bi.boot <-  bootstrap.t.CI.lme(sapMod.bi, lin.comb.Ct=modmat.sap, nboot=nsim,
                                        alpha=0.05, ncore=7)
 
+effectplot.Kfunctionlme(sapMod.bi.boot)
 ```
 
 
+
+#### 2.3.4 Cluster results
+```{r clusterresults, evaluate=TRUE}
+## Alternatively, load results from cluster
+load("../data/clusterResults/PeruDispersal_v7_rmax15.RData")
+dim(results$bi$boot$modelpars)
+sapMod.uni.boot <- results$uni$boot
+sapMod.bi.boot <- results$bi$boot
+```
 
 ### 2.4 Examining coefficients of models
 
@@ -371,13 +314,15 @@ c. the decrease in clustering in hunted sites disappears among high HSD species.
 
 ### 2.5 Formal tests of Hypothesis 1
 
+We can use an Anova type analysis
 
-```{r H1hypothesistests}
+```{r H1hypothesistests, evaluate=FALSE}
+## extract the relevant data
 sapMod.uni1way <- lmeHyperframe(hyperdat.uni.sap, 0:rmax,
                          fixed="huntpres+HSD",
                          random="1|site",
                          computeK=FALSE)
-anova1waysaps <- sapply(c('huntpres', 'HSD'), function(term)
+anovaSaps1 <- sapply(c('huntpres', 'HSD'), function(term)
 {
     bootstrap.compare.lme(sapMod.uni1way, term=term,
                           dists=list(1:5, 1:10, 1:rmax, 5:10), nboot=nsim, ncore=7)
@@ -385,15 +330,43 @@ anova1waysaps <- sapply(c('huntpres', 'HSD'), function(term)
 
 
 ##interaction term
-anova2waysaps2 <- 
+anovaSaps2 <- 
     bootstrap.compare.lme(sapMod.uni, term="huntpres:HSD",
-                          dists=list(1:5, 1:10, 1:rmax, 5:10), nboot=499, ncore=7)
-str(anova2waysaps)
+                          dists=list(1:5, 1:10, 1:rmax, 5:10), nboot=19, ncore=7)
 
+anova.saps<- c(anovaSaps1, "huntpres:HSD" = list(anovaSaps2))
+
+
+```
+
+We can also run the analysis on a cluster and use the results. Here we use that approach.
+
+```{r load_anova}
+load("../data/clusterResults/Peru_v7_1_wayAnovaSaps_rmax15.RData")
+load("../data/clusterResults/Peru_v7_2_wayAnovaSaps_rmax15.RData")
+
+## univariate
+anova.saps.uni.1way <- 
+  lapply(anovaSaps1$uni$anovas, function(x) x$dtable)
+names(anova.saps.uni.1way) <- sapply(anovaSaps1$uni$anovas, function(x) x[[1]]$term)
+anova.saps.uni <- c(anova.saps.uni.1way, anovaSaps2$uni$anovas[[1]])
+
+## bivariate
+anova.saps.bi.1way <- 
+  lapply(anovaSaps1$bi$anovas, function(x) x$dtable)
+names(anova.saps.bi.1way) <- sapply(anovaSaps1$bi$anovas, function(x) x[[1]]$term)
+anova.saps.bi <- c(anova.saps.bi.1way, anovaSaps2$bi$anovas[[1]])
+
+```
+
+In either case, we then extract the relevant results
+
+```{r saplinganovaresults}
 extractAnova <-  function(Aobj){
   require(abind)
   statlists <- lapply(Aobj[1:2], function(s)
   {
+    s <- Aobj[[1]][[1]]
     st <- do.call('rbind', lapply(s, function(d) d[[1]]))
     rownames(st) <-  sapply(s, function(x) paste(x$dists[1], x$dists[length(x$dists)], sep='-'))
     return(st)
@@ -401,25 +374,26 @@ extractAnova <-  function(Aobj){
   abind(statlists, along=3)
 }
 
-anova.saps<- c(anova1waysaps, "huntpres:HSD" = list(anova2waysaps2))
-
-saplingAnovaTable <- do.call(what='abind', args=list(lapply(anova.saps, extractAnova), 
+## univariate
+saplingAnovaTable.uni <- do.call(what='abind', args=list(lapply(anova.saps.uni, extractAnova), 
                                 along=2, 
                                 new.names=list(NULL,
                                                paste(rep(names(anova.saps), each=2), 
                                                      rep(c('D', 'P'), 3), sep='_'),
                                                NULL)))
 
-saplingAnovaTable
-## load the results of the anovas - run on computing grid
-## This will only run after the other analyses have been run and results saved.
-## This analysis includes all except for wind dispersed species.
-# 
-# ## function to extract the data we need from these results
-# extractAnovas <- function(Aobj, type){
-#     Aobj <- Aobj[[type]]$anovas
-#     sapply(Aobj, function(x)  x[['dtable']][c("term", "D", "p")], simplify=TRUE)
-# }
+## bivariate results
+saplingAnovaTable.bi <- do.call(what='abind', args=list(lapply(anova.saps.bi, extractAnova), 
+                                along=2, 
+                                new.names=list(NULL,
+                                               paste(rep(names(anova.saps), each=2), 
+                                                     rep(c('D', 'P'), 3), sep='_'),
+                                               NULL)))
+
+
+saplingAnovaTable.uni
+
+saplingAnovaTable.bi
 ```
 
 
@@ -433,11 +407,11 @@ saplingAnovaTable
 
 ```{r univariate_intMod}
 ## Full model with Juveniles and saplings (pair2)
-
 intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,
                          fixed="stage*huntpres*HSD",
                          random="1|site/Spp",
                          computeK=FALSE)
+
 ```
 
 
@@ -445,7 +419,38 @@ intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,
 Checking the model diagnostics
 
 ```{r univarIntDiag}
+## site level random effects
+siteranefs <- tbl_df(extractModRanefs(intMod.uni))
+
+siteranefs$hunted <- sitedat$hunted[match(siteranefs$id, sitedat$site)]
+siteranefs$huntpres <- sitedat$huntpres[match(siteranefs$id, sitedat$site)]
+
+siteranefs %>% ggplot(aes(x=huntpres, y=value)) + 
+  geom_smooth(method='gam', method.args=list(k=5)) + geom_point(aes(col=id)) +
+  facet_wrap(~distance, scale='free') + theme_bw()
+
+siteranefs %>% ggplot(aes(sample=value)) + geom_qq() + 
+  facet_wrap(~distance, scale='free') + theme_bw()
+
+## species level random effects
+spranefs <- tbl_df(extractModRanefs(intMod.uni, level=2))
+spranefs <- separate(spranefs,id, c("site", "Spp"), "/")
+
+spranefs$HSD <- dispersal$HSD[match(spranefs$Spp, dispersal$Spp)]
+
+spranefs %>% ggplot(aes(x=HSD, y=value)) + geom_point() +
+  geom_smooth(method='gam', method.args=list(k=5)) + facet_wrap(~site)
+
+spranefs %>% ggplot(aes(sample=value)) + geom_qq() + facet_wrap(~site)
+
+## Certainly not ideal if we were making parametric  - but we 
+## are bootstrapping (semi-parametrically) so these aren't too bad. That said,
+## perhaps worth looking at some of those LA values
+spranefs[spranefs$value > 1500,] ## note - removing this one species had no effect on
+##model coeffients.
+
 resids.uni <- plotModResids(intMod.uni)
+
 ## add data on species names
 dim(resids.uni)
 resids.uni$species <- rep(hyperdat.uni.sel.c$Spp, 15)
@@ -491,15 +496,8 @@ siteranefs %>% ggplot(aes(sample=value)) + geom_qq() +
 
 
 ```{r fullmodels}
-hyperdat.bi.sel.c <- hyperdat.bi.sel[-c(993:995),] 
-
 ## Full models with Juveniles and saplings (pair2)
 intMod.bi <- lmeHyperframe(hyperdat.bi.sel.c, 0:rmax,
-                         fixed="stage*huntpres*HSD",
-                         random="1|site/Spp",
-                         computeK=FALSE)
-
-intMod.uni <- lmeHyperframe(hyperdat.uni.sel, 0:rmax,
                          fixed="stage*huntpres*HSD",
                          random="1|site/Spp",
                          computeK=FALSE)
@@ -507,11 +505,10 @@ intMod.uni <- lmeHyperframe(hyperdat.uni.sel, 0:rmax,
 
 
 
-```{r fullmodeldiagnostics}
+```{r fullmodeldiagnostics_bi}
 siteranefs <- tbl_df(extractModRanefs(intMod.bi))
 
 siteranefs$hunted <- sitedat$hunted[match(siteranefs$id, sitedat$site)]
-
 siteranefs$huntpres <- sitedat$huntpres[match(siteranefs$id, sitedat$site)]
 
 siteranefs %>% ggplot(aes(x=huntpres, y=value)) + 
@@ -522,10 +519,24 @@ siteranefs %>% ggplot(aes(x=huntpres, y=value)) +
 siteranefs %>% ggplot(aes(sample=value)) + geom_qq() + 
     facet_wrap(~distance, scale='free') + theme_bw()
 
+## Species random effects
+spranefs <- tbl_df(extractModRanefs(intMod.bi, level=2))
+spranefs <- separate(spranefs,id, c("site", "Spp"), "/")
+
+spranefs$HSD <- dispersal$HSD[match(spranefs$Spp, dispersal$Spp)]
+
+spranefs %>% ggplot(aes(x=HSD, y=value)) + geom_point() +
+  geom_smooth(method='gam', method.args=list(k=5)) + facet_wrap(~site)
+
+spranefs %>% ggplot(aes(sample=value)) + geom_qq() +
+  facet_wrap(~site)
+
+
 resids.bi <- plotModResids(intMod.bi)
 ## add data on species names
 resids.bi$species <- rep(hyperdat.bi.sel.c$Spp, 15)
 resids.bi$sp.id <- rep(hyperdat.bi.sel.c$sp.id, 15)
+resids.bi$N <- rep(hyperdat.bi.sel.c$N1, 15)
 
 
 resids.bi %>% ggplot(aes(x=huntpres, y=resid, colour=HSD)) +
@@ -546,18 +557,6 @@ ggplot(data=resids.bi, aes(x=distance, y=resid, colour=HSD, group=species)) +
    theme_bw()
 
 ```
-```{r removeoutliers_fullmod}
-hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c, !((sp.id == 108 & pname=='BM') |
-                                                   (sp.id==314 & pname=='CC2') |
-                                                   (sp.id==38 & pname=='LA') |
-                                                   (sp.id==144 & pname=='LA'))
-)
-## refit model
-intMod.bi <- lmeHyperframe(hyperdat.bi.sel.c, 0:rmax,
-                         fixed="stage*huntpres*HSD",
-                         random="1|site/Spp",
-                         computeK=FALSE)
-```
 
 ```{r fullmodelboot}
 ## construct data to make predictions for figures with
@@ -565,18 +564,39 @@ preddat.int <-  expand.grid(stage=c('S', 'J'),
                             huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
                             HSD = c(0, 1))
 ## RHS of model formula
-allform <- update(formula(intMod.uni[[1]]), NULL~.)
+allform <- update(formula(intMod.bi[[1]]), NULL~.)
 ## Make model matrix
 modmat.int <-  model.matrix(allform, data=preddat.int)
-nsim <- 99
-## Bootstrapping
-system.time(intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi, lin.comb.Ct=modmat.int, nboot=nsim, alpha=0.05,
-                                    ncore=7))
 
+## Bootstrapping
+## Univariate
 system.time(intMod.uni.boot <-  bootstrap.t.CI.lme(intMod.uni, lin.comb.Ct=modmat.int, nboot=nsim,
                                        alpha=0.05, ncore=7))
 
+## bivariate
+system.time(intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi, lin.comb.Ct=modmat.int, nboot=nsim,
+                                                  alpha=0.05, ncore=7))
+
+plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
+          effectplot.Kfunctionlme(intMod.bi.boot), labels=c('Uni', 'bi'))
+
+
+
+
 ```
+
+#### 3.3.5 Cluster results
+Once again, we can run the bootstrapping on a cluster and use those results here.
+
+```{r clusterresultsJuvs, evaluate=TRUE}
+## Alternatively, load results from cluster
+load("../data/clusterResults/PeruDispersal_v7_rmax15.RData")
+
+intMod.uni.boot <- results$uni$boot
+intMod.bi.boot <- results$bi$boot
+```
+
+
 
 
 ```{r fullmodelcoefplot}
@@ -589,8 +609,8 @@ plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
 ```{r fullmodelplotting}
 ################################################################################
 ## extract predictions and cis from model output
-int.bi.plotdat <- kfunclme2plot(intMod.bi.boot, preddat=preddat.int)
-int.uni.plotdat <- kfunclme2plot(intMod.uni.boot, preddat=preddat.int)
+int.bi.plotdat <- kfunclme2plot(intMod.bi.boot, preddat=results$preddat)
+int.uni.plotdat <- kfunclme2plot(intMod.uni.boot, preddat=results$preddat)
 
 names(int.bi.plotdat)[2:4] <- paste(names(int.bi.plotdat)[2:4], 'bi', sep='.')
 names(int.uni.plotdat)[2:4] <- paste(names(int.uni.plotdat)[2:4], 'uni', sep='.')

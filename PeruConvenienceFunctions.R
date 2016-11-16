@@ -22,17 +22,13 @@ kfunclme2plot <- function(res, preddat)
 ## A function that plots the BLUEs against distance
 plot.kfunctionlme <- function(x){
   require(ggplot2)
+  
+  dat <- do.call('rbind', lapply(x, tidy, effects='fixed'))
   dists <- as.numeric(names(x))
-  dat <- rbind(dists, sapply(x, fixef))
-  parnames <- rownames(dat)[-1]
-  dat <- melt(dat, ~distance)
-  names(dat)[c(1, 3)] <-  c("Parameter", "K")
-  dat <- dat[dat$Parameter !='dists',]
-  dat$Parameter <- factor(dat$Parameter, levels=parnames)
-  dat$K[dat$Parameter == "(Intercept)"] <- dat$K[dat$Parameter == "(Intercept)"] -
-    pi*dat$distance[dat$Parameter == "(Intercept)"]^2
-  ggplot(dat, aes(x=distance, y=K)) + geom_line() +
-    facet_wrap(~Parameter, scales="free_y")  + theme_bw()
+  dat$distance <- rep(dists, each=length(fixef(x[[1]])))
+
+  ggplot(dat, aes(x=distance, y=estimate)) + geom_line() +
+    facet_wrap(~term, scales="free_y")  + theme_bw()
 }
 
 ## Function that standardises a vector

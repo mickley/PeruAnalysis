@@ -202,7 +202,7 @@ sitedat[order(sitedat$pname),] ## take a quick look</code></pre>
 <h4>2.2.3 Organise spatial pattern data</h4>
 <p>Need to deal with colocated points and remove stems that are a. palms,<br />
 b. unidentified (spcode = -999) c. have no dispersal data d. Juveniles &gt; 5 cm dbh</p>
-<p>We also remove from the bivariate analysis species without at least one individual in each cohort (adults, juveniles and saplings) in the central ha of the site and from the univariate analysis species with have &lt;2 juveniles or saplings in the central ha of a site</p>
+<p>We also remove from the bivariate analysis species without at least two individuals in each cohort (adults, juveniles and saplings) in the central ha of the site and from the univariate analysis species which have &lt;2 juveniles or saplings in the central ha of a site</p>
 <pre class="r"><code># First deal with duplicated points (same site, coordinates, code and Type) -
 # sometimes these have different tags, but for our purposes, 2 points at the
 # same location cause problems, so we add a little bit of noise to them
@@ -246,18 +246,18 @@ abund$hasdisp &lt;- abund$code %in% dispersal$code
 ## species and site combination for 
 
 abund$Quni &lt;- abund$N.S &gt; 1 &amp; abund$N.J &gt; 1 &amp; abund$hasdisp
-abund$Qbi &lt;- abund$N.A &gt; 0 &amp; abund$N.J &gt; 0 &amp; abund$N.S &gt; 0 &amp; abund$hasdisp
+abund$Qbi &lt;- abund$N.A &gt; 1 &amp; abund$N.J &gt; 1 &amp; abund$N.S &gt; 1 &amp; abund$hasdisp
 
 ## Some preliminary numbers of how many stems and species qualify
-sum(abund$Quni); sum(abund$Qbi) ## 601 &amp; 624 species</code></pre>
+sum(abund$Quni); sum(abund$Qbi) ## 601 &amp; 437 species</code></pre>
 <pre><code>## [1] 601</code></pre>
-<pre><code>## [1] 624</code></pre>
+<pre><code>## [1] 437</code></pre>
 <pre class="r"><code>apply(abund[abund$Quni, c('N.J', 'N.S')], 2, sum) ## 17470 juvs and 9709 saps </code></pre>
 <pre><code>##   N.J   N.S 
 ## 17470  9709</code></pre>
-<pre class="r"><code>apply(abund[abund$Qbi, c('N.A', 'N.J', 'N.S')], 2, sum) ## 9667 ads 18570 juvs and 8854 saps </code></pre>
+<pre class="r"><code>apply(abund[abund$Qbi, c('N.A', 'N.J', 'N.S')], 2, sum) ## 8820 ads 14093 juvs and  7942 saps </code></pre>
 <pre><code>##   N.A   N.J   N.S 
-##  9619 16033  8837</code></pre>
+##  8820 14093  7942</code></pre>
 <pre class="r"><code>trees &lt;- merge(trees, abund, by=c('Spp', 'code', 'Site'), all =T)
 trees$Spp &lt;- droplevels(trees$Spp)
 nlevels(trees$Spp)</code></pre>
@@ -289,8 +289,8 @@ nlevels(trees$Spp)</code></pre>
 ##                                                                            
 ##   hasdisp           Quni            Qbi         
 ##  Mode :logical   Mode :logical   Mode :logical  
-##  FALSE:13624     FALSE:16808     FALSE:18382    
-##  TRUE :39247     TRUE :36063     TRUE :34489    
+##  FALSE:13624     FALSE:16808     FALSE:22016    
+##  TRUE :39247     TRUE :36063     TRUE :30855    
 ##  NA's :0         NA's :0         NA's :0        
 ##                                                 
 ##                                                 
@@ -613,72 +613,77 @@ SIMPLIFY=FALSE)
 
 hyperdat.bi &lt;- do.call('rbind', hyperdat.bi)
 summary(hyperdat.bi)</code></pre>
-<pre><code>## hyperframe with 1020 rows and 28 columns
+<pre><code>## hyperframe with 786 rows and 28 columns
 ##         site         sp.id     stage    pppx  pppy  ppphet   forest   
 ##     (factor)      (factor)     (factor) (ppp) (ppp)  (ppp) (factor)   
-##  BM       :178   169    : 12   S:510                       BM   :178  
-##  CashuTr12:198   306    : 12   J:510                       Cashu:396  
-##  CashuTr3 :198   597    : 12                               LA   :148  
-##  LA       :148   611    : 12                               RA   :136  
-##  RA       :136   628    : 12                               TRC  :162  
-##  TRC      :162   664    : 12                                          
-##                  (Other):948                                          
+##  BM       :118   169    : 12   S:393                       BM   :118  
+##  CashuTr12:160   306    : 12   J:393                       Cashu:306  
+##  CashuTr3 :146   597    : 12                               LA   :126  
+##  LA       :126   611    : 12                               RA   :120  
+##  RA       :120   628    : 12                               TRC  :116  
+##  TRC      :116   664    : 12                                          
+##                  (Other):714                                          
 ##  pname        hunted     lg.primates      lg.birds       huntpres     
 ##  (factor)   (factor)       (numeric)     (numeric)      (numeric)     
-##  BM :178   intact:558   Min.   : 0.0   Min.   : 2.1   Min.   :-1.700  
-##  CC1:198   hunted:462   1st Qu.: 0.0   1st Qu.: 8.0   1st Qu.:-1.700  
-##  CC2:198                Median :15.9   Median :29.2   Median :-1.443  
-##  LA :148                Mean   :17.6   Mean   :22.4   Mean   :-0.144  
-##  RA :136                3rd Qu.:37.5   3rd Qu.:29.2   3rd Qu.: 1.780  
-##  TRC:162                Max.   :37.5   Max.   :44.0   Max.   : 2.162  
+##  BM :118   intact:422   Min.   : 0.0   Min.   : 2.1   Min.   :-1.700  
+##  CC1:146   hunted:364   1st Qu.: 0.0   1st Qu.: 8.0   1st Qu.:-1.700  
+##  CC2:160                Median :15.9   Median :29.2   Median :-1.443  
+##  LA :126                Mean   :17.6   Mean   :22.3   Mean   :-0.134  
+##  RA :120                3rd Qu.:37.5   3rd Qu.:29.2   3rd Qu.: 1.780  
+##  TRC:116                Max.   :37.5   Max.   :44.0   Max.   : 2.162  
 ##                                                                       
 ##        N1            N2                       Spp            LV       
 ##  (integer)     (integer)                 (factor)      (numeric)      
-##  Min.   :  1   Min.   :  1   Celtis schippii    : 12   Min.   :0.000  
-##  1st Qu.:  3   1st Qu.:  4   Guarea macrophylla : 12   1st Qu.:0.000  
-##  Median :  8   Median :  8   Pseudolmedia laevis: 12   Median :0.600  
-##  Mean   : 22   Mean   : 18   Quararibea wittii  : 12   Mean   :0.477  
-##  3rd Qu.: 21   3rd Qu.: 17   Ruizodendron ovale : 12   3rd Qu.:0.800  
+##  Min.   :  2   Min.   :  2   Celtis schippii    : 12   Min.   :0.000  
+##  1st Qu.:  5   1st Qu.:  5   Guarea macrophylla : 12   1st Qu.:0.000  
+##  Median : 12   Median : 10   Pseudolmedia laevis: 12   Median :0.600  
+##  Mean   : 27   Mean   : 22   Quararibea wittii  : 12   Mean   :0.493  
+##  3rd Qu.: 27   3rd Qu.: 22   Ruizodendron ovale : 12   3rd Qu.:0.800  
 ##  Max.   :700   Max.   :325   Sorocea pileata    : 12   Max.   :1.000  
-##                              (Other)            :948                  
-##        SV              SB             Bat              TR             Wind     
-##  (numeric)       (numeric)       (numeric)       (numeric)       (numeric)     
-##  Min.   :0.000   Min.   :0.000   Min.   :0.000   Min.   :0.000   Min.   :0.00  
-##  1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.00  
-##  Median :0.000   Median :0.000   Median :0.000   Median :0.000   Median :0.00  
-##  Mean   :0.123   Mean   :0.205   Mean   :0.085   Mean   :0.029   Mean   :0.05  
-##  3rd Qu.:0.200   3rd Qu.:0.300   3rd Qu.:0.000   3rd Qu.:0.000   3rd Qu.:0.00  
-##  Max.   :1.000   Max.   :1.000   Max.   :1.000   Max.   :1.000   Max.   :1.00  
+##                              (Other)            :714                  
+##        SV              SB             Bat              TR            Wind      
+##  (numeric)       (numeric)       (numeric)       (numeric)      (numeric)      
+##  Min.   :0.000   Min.   :0.000   Min.   :0.000   Min.   :0.00   Min.   :0.000  
+##  1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.00   1st Qu.:0.000  
+##  Median :0.000   Median :0.000   Median :0.000   Median :0.00   Median :0.000  
+##  Mean   :0.129   Mean   :0.198   Mean   :0.089   Mean   :0.03   Mean   :0.043  
+##  3rd Qu.:0.200   3rd Qu.:0.200   3rd Qu.:0.000   3rd Qu.:0.00   3rd Qu.:0.000  
+##  Max.   :1.000   Max.   :1.000   Max.   :1.000   Max.   :1.00   Max.   :1.000  
 ##                                                                                
-##       Expl           Unkwn          Abiotic           HSD       
-##  (numeric)       (numeric)        (numeric)      (numeric)      
-##  Min.   :0.000   Min.   :0.000   Min.   :0.000   Min.   :0.000  
-##  1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.000  
-##  Median :0.000   Median :0.000   Median :0.000   Median :0.600  
-##  Mean   :0.021   Mean   :0.012   Mean   :0.071   Mean   :0.479  
-##  3rd Qu.:0.000   3rd Qu.:0.000   3rd Qu.:0.000   3rd Qu.:0.800  
-##  Max.   :1.000   Max.   :1.000   Max.   :1.000   Max.   :1.000  
-##                                                                 
-##       HID        K     wts      
-##  (numeric)       (rat) (numeric)
-##  Min.   :0.000                  
-##  1st Qu.:0.200                  
-##  Median :0.400                  
-##  Mean   :0.511                  
-##  3rd Qu.:1.000                  
-##  Max.   :1.000                  
+##       Expl          Unkwn         Abiotic           HSD             HID       
+##  (numeric)      (numeric)       (numeric)      (numeric)       (numeric)      
+##  Min.   :0.00   Min.   :0.00   Min.   :0.000   Min.   :0.000   Min.   :0.000  
+##  1st Qu.:0.00   1st Qu.:0.00   1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.200  
+##  Median :0.00   Median :0.00   Median :0.000   Median :0.600   Median :0.400  
+##  Mean   :0.01   Mean   :0.01   Mean   :0.053   Mean   :0.492   Mean   :0.498  
+##  3rd Qu.:0.00   3rd Qu.:0.00   3rd Qu.:0.000   3rd Qu.:0.800   3rd Qu.:1.000  
+##  Max.   :1.00   Max.   :1.00   Max.   :1.000   Max.   :1.000   Max.   :1.000  
+##                                                                               
+##  K     wts      
+##  (rat) (numeric)
+##                 
+##                 
+##                 
+##                 
+##                 
+##                 
 ## </code></pre>
-<p>Because we are using plus-sampling rather than minus-sampling for the bivariate analysis, we don’t need to do a final cut of speices as we did in the univariaten case. Howeever, one species, <em>Unonopsis floribunda</em> seems to cause problems(sp.id 729) at one site, CC2. We Remove that manually.</p>
-<pre class="r"><code>hyperdat.bi.sel &lt;- subset(hyperdat.bi, !(sp.id==&quot;729&quot; &amp; pname=='CC2'))
-## We can now remove unused levels
-hyperdat.bi.sel$sp.id &lt;- droplevels(hyperdat.bi.sel$sp.id)
-hyperdat.bi.sel$Spp &lt;- droplevels(hyperdat.bi.sel$Spp)</code></pre>
+<p>Because we are using plus-sampling rather than minus-sampling for the bivariate analysis, we don’t need to do a final cut of speices as we did in the univariaten case.</p>
+<!-- Howeever, one species, *Croton tessmannii* seems to cause problems(sp.id 226) at one site, CC2. We Remove that manually. -->
+<!-- ```{r removeUfloribundaCC2} -->
+<!-- hyperdat.bi.sel <- hyperdat.bi -->
+<!-- hyperdat.bi.sel <- subset(hyperdat.bi, !(sp.id=="226" & pname=='CC2')) -->
+<!-- ## We can now remove unused levels -->
+<!-- hyperdat.bi.sel$sp.id <- droplevels(hyperdat.bi.sel$sp.id) -->
+<!-- hyperdat.bi.sel$Spp <- droplevels(hyperdat.bi.sel$Spp) -->
+<!-- ``` -->
 <p>Later analysis reveals that some species/site combinations are major outliers in the bivariate analysis. We could remove them in individual analyses, but that starts to get messy and could lead to errors. To deal with this problem once and for all, we remove them here</p>
 <pre class="r"><code>## Removing those species now
-hyperdat.bi.sel &lt;- subset(hyperdat.bi.sel, !((sp.id == 108 &amp; pname=='BM') |
-                                                   (sp.id==314 &amp; pname=='CC2') |
-                                                   (sp.id==38 &amp; pname=='LA') |
-                                                   (sp.id==144 &amp; pname=='LA'))
+hyperdat.bi.sel &lt;- subset(hyperdat.bi, !((sp.id == 108 &amp; pname=='BM') |
+                                               (sp.id==314 &amp; pname=='CC2') |
+                                               (sp.id==38 &amp; pname=='LA') |
+                                               (sp.id==144 &amp; pname=='LA') |
+                                               (sp.id==226 &amp; pname==&quot;CC2&quot;))
 )
 
 ## We can now remove unused levels

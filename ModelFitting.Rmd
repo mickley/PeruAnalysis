@@ -580,9 +580,6 @@ system.time(intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi, lin.comb.Ct=modmat.
 plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
           effectplot.Kfunctionlme(intMod.bi.boot), labels=c('Uni', 'bi'))
 
-
-
-
 ```
 
 #### 3.3.5 Cluster results
@@ -594,6 +591,7 @@ load("../data/clusterResults/PeruDispersal_v7_rmax15.RData")
 
 intMod.uni.boot <- results$uni$boot
 intMod.bi.boot <- results$bi$boot
+preddat.int <-  results$preddat
 ```
 
 
@@ -609,8 +607,8 @@ plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
 ```{r fullmodelplotting}
 ################################################################################
 ## extract predictions and cis from model output
-int.bi.plotdat <- kfunclme2plot(intMod.bi.boot, preddat=results$preddat)
-int.uni.plotdat <- kfunclme2plot(intMod.uni.boot, preddat=results$preddat)
+int.bi.plotdat <- kfunclme2plot(intMod.bi.boot, preddat=preddat.int)
+int.uni.plotdat <- kfunclme2plot(intMod.uni.boot, preddat=preddat.int)
 
 names(int.bi.plotdat)[2:4] <- paste(names(int.bi.plotdat)[2:4], 'bi', sep='.')
 names(int.uni.plotdat)[2:4] <- paste(names(int.uni.plotdat)[2:4], 'uni', sep='.')
@@ -793,7 +791,8 @@ disp.list <- merge(disp.list.uni, disp.list.bi, by="Spp", all=T, suffix=c('uni',
 apply(disp.list[, -1], 2, function(x) sum(x>0, na.rm=T)) ## number dependent to some degree
 apply(disp.list[, -1], 2, function(x) sum(x==1, na.rm=T)) ## number totally dependent
 apply(disp.list[, -1], 2, function(x) sum(!is.na(x))) ## Total number of species
-35/224
+35/224; 29/176
+131/224; 110/176 ## proportion large vertebrate dispersed
 
 ## Number of stems in each life stage.
 aggregate(N1 ~ stage, hyperdat.uni.sel.c, sum) ##  univariate analysis

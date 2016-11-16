@@ -83,5 +83,5 @@ assign(objname, anovaJuvs)
 dir.name <- paste0('../results/results_', Sys.Date())
 system(paste('mkdir -p', dir.name))
 
-save(list=objname, file=paste0(dir.name, '/', 'Peru_v7',
+save(list=objname, file=paste0(dir.name, '/', 'Peru_v7_',
                      intlevel, '_wayAnovaJuvs', '_rmax', rmax, '.RData'))

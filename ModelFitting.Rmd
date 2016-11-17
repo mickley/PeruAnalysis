@@ -21,6 +21,7 @@ If you need to install the `ReplicatedPointPatterns` package, you can execute th
 ##devtools::install_github('robertbagchi/ReplicatedPointPatterns')
 ```
 
+
 We can then load all the necessary libraries.
 
 ```{r loadlibs, warning=FALSE, message=FALSE}
@@ -43,6 +44,8 @@ library(grid)
 library(gtable)
 library(ggrepel)
 library(ggthemes)
+
+usecluster <- TRUE ## run bootstraps locally (FALSE) or use results from cluster (TRUE)
 ```
 
 
@@ -88,7 +91,7 @@ hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1) ## Univariate
 
 Set number of iterations for bootstrapping - keep small for trials (takes a long time). The code was run on a HPC for paper
 ```{r setpars}
-nsim <- 19
+nsim <- 7
 rmax ## double check  value set in previous code
 ```
 
@@ -106,7 +109,7 @@ hyperdat.uni.sap <- subset(hyperdat.uni.sel.c, stage=='S')
 hyperdat.bi.sap <- subset(hyperdat.bi.sel.c, stage=='S')
 ```
 
-### 2.2 Univariate models
+### 2.2 Univariate sapling-only models
 
 #### 2.2.1 Fit model
 
@@ -128,7 +131,7 @@ sapMod.uni <- lmeHyperframe(hyperdat.uni.sap, 0:rmax,
 
 Then we can look at some of the diagnostics using the functions defined in the sourced file, "PeruConvenienceFunctions.R".
 
-```{r diagnostics, fig.height=8}
+```{r diagnostics_sapmoduni, fig.height=8}
 ## Random effects
 siteranefs <- tbl_df(extractModRanefs(sapMod.uni))
 
@@ -173,14 +176,16 @@ ggplot(data=resids.uni, aes(x=distance, y=resid, colour=HSD, group=species)) +
  
 Looks pretty good overall. There are some biggish outliers, especially *Matisia cordata* (sp.id 764) at LA, an unidentified myrtac (sp.id 446) at RA and *Pourouma minor* (562) and *Matisia rhombifolia* (411) at TRC. Let us take a look at these species:
 
-`r subset(hyperdat.uni.sap, sp.id %in% c(764, 446, 562, 411), select=c('sp.id', 'Spp', 'N1', 'pname'))`
-
+```{r outliers}
+subset(hyperdat.uni.sap, sp.id %in% c(764, 446, 562, 411), 
+       select=c('sp.id', 'Spp', 'N1', 'pname'))
+```
 These species are generally relatively rare at the sites where they are outliers (see the N1 column), so probably have little effect on the analyisis. 
 
 
 #### 2.2.3 Calculate confidence intervals
 
-```{r unimodel_confints}
+```{r unimodel_confints, eval=!usecluster}
 ## First make the model matrix
 preddat.sap <-  expand.grid(stage=c('S'),
                             huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
@@ -198,7 +203,7 @@ effectplot.Kfunctionlme(sapMod.uni.boot)
 ```
 
 
-### 2.3 Bivariate models
+### 2.3 Bivariate sapling only models
 Next we analyse the adult-recruit distances.
 
 #### 2.3.1 Model fitting
@@ -219,7 +224,7 @@ sapMod.bi <- lmeHyperframe(hyperdat.bi.sap, 0:rmax,
 #### 2.3.2 model diagnostics
 Then we can look at some of the diagnostics.
 
-```{r diagnostics, fig.height=8}
+```{r diagnostics_sapmodbi, fig.height=8}
 siteranefs <- tbl_df(extractModRanefs(sapMod.bi))
 
 siteranefs$hunted <- sitedat$hunted[match(siteranefs$id, sitedat$site)]
@@ -259,8 +264,8 @@ resids.bi %>% ggplot(aes(x=HSD, y=resid, colour=huntpres)) +
    theme_bw()
 ## plotting the residuals with labels to identify the outliers.
 ggplot(data=resids.bi, aes(x=distance, y=resid, colour=HSD, group=species)) +
-       geom_line() +
-                                 aes(label=paste(sp.id, species), x=distance, y=resid), size=3) +
+  geom_line() +
+  geom_label(aes(label=paste(sp.id, species), x=distance, y=resid), size=3) +
   facet_wrap(~site) + 
    theme_bw()
 
@@ -269,7 +274,7 @@ ggplot(data=resids.bi, aes(x=distance, y=resid, colour=HSD, group=species)) +
 
 #### 2.3.3 Estimating the confidence intervals
 
-```{r bimodel_confints}
+```{r bimodel_confints, eval=!usecluster}
 
 ## Can use the model matrix from the univariate analysis
 ## Bootstrapping
@@ -280,21 +285,11 @@ effectplot.Kfunctionlme(sapMod.bi.boot)
 ```
 
 
-
-#### 2.3.4 Cluster results
-```{r clusterresults, evaluate=TRUE}
-## Alternatively, load results from cluster
-load("../data/clusterResults/PeruDispersal_v7_rmax15.RData")
-dim(results$bi$boot$modelpars)
-sapMod.uni.boot <- results$uni$boot
-sapMod.bi.boot <- results$bi$boot
-```
-
 ### 2.4 Examining coefficients of models
 
-We can easily plot the coefficients from the models and their confidence intervals using functions defined in the convenience functions code.
+We can plot the coefficients from the models and their confidence intervals using functions defined in the convenience functions code side by side with.
 
-```{r exploring_sapling_model_results}
+```{r exploring_sapling_model_results, eval =!usecluster}
 plot_grid(effectplot.Kfunctionlme(sapMod.uni.boot),
           effectplot.Kfunctionlme(sapMod.bi.boot), 
           labels=c('Univariate', 'Bivariate'))
@@ -308,15 +303,14 @@ c. Clustering increases slightly faster among high HSD species.
 
 2. In the bivariate analysis 
 a. there is more clustering among high HSD species
-b. clustering is *lower* among low HSD species at hunted sites
-c. the decrease in clustering in hunted sites disappears among high HSD species.
+b. None of the other predictors seem to explain much variation in clustering (CIs are very wide)
 
 
 ### 2.5 Formal tests of Hypothesis 1
 
 We can use an Anova type analysis
 
-```{r H1hypothesistests, evaluate=FALSE}
+```{r H1hypothesistests, eval=!usecluster}
 ## extract the relevant data
 sapMod.uni1way <- lmeHyperframe(hyperdat.uni.sap, 0:rmax,
                          fixed="huntpres+HSD",
@@ -336,49 +330,52 @@ anovaSaps2 <-
 
 anova.saps<- c(anovaSaps1, "huntpres:HSD" = list(anovaSaps2))
 
-
 ```
 
 We can also run the analysis on a cluster and use the results. Here we use that approach.
 
-```{r load_anova}
-load("../data/clusterResults/Peru_v7_1_wayAnovaSaps_rmax15.RData")
-load("../data/clusterResults/Peru_v7_2_wayAnovaSaps_rmax15.RData")
+```{r load_anova, eval=usecluster}
+load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15.RData")
+
+load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15.RData")
 
 ## univariate
 anova.saps.uni.1way <- 
   lapply(anovaSaps1$uni$anovas, function(x) x$dtable)
 names(anova.saps.uni.1way) <- sapply(anovaSaps1$uni$anovas, function(x) x[[1]]$term)
-anova.saps.uni <- c(anova.saps.uni.1way, anovaSaps2$uni$anovas[[1]])
+anova.saps.uni <- c(anova.saps.uni.1way, "huntpres:HSD" = anovaSaps2$uni$anovas[[1]])
 
 ## bivariate
 anova.saps.bi.1way <- 
   lapply(anovaSaps1$bi$anovas, function(x) x$dtable)
 names(anova.saps.bi.1way) <- sapply(anovaSaps1$bi$anovas, function(x) x[[1]]$term)
-anova.saps.bi <- c(anova.saps.bi.1way, anovaSaps2$bi$anovas[[1]])
+anova.saps.bi <- c(anova.saps.bi.1way, "huntpres:HSD" = anovaSaps2$bi$anovas[[1]])
 
 ```
 
-In either case, we then extract the relevant results
+In either case, we then extract the relevant results 
 
 ```{r saplinganovaresults}
+## FUnctinon to extract results table
 extractAnova <-  function(Aobj){
   require(abind)
-  statlists <- lapply(Aobj[1:2], function(s)
+    statlists <- lapply(Aobj[1:2], function(s)
   {
-    s <- Aobj[[1]][[1]]
-    st <- do.call('rbind', lapply(s, function(d) d[[1]]))
+      st <- do.call('rbind', lapply(s, function(d) d[[1]]))
     rownames(st) <-  sapply(s, function(x) paste(x$dists[1], x$dists[length(x$dists)], sep='-'))
     return(st)
   })
   abind(statlists, along=3)
 }
+## Function that extracts the number of iterations.
+niterFind <- function(x) length(x$anovas[[1]]$dtable$D[[1]]$D.boot)
+
 
 ## univariate
 saplingAnovaTable.uni <- do.call(what='abind', args=list(lapply(anova.saps.uni, extractAnova), 
                                 along=2, 
                                 new.names=list(NULL,
-                                               paste(rep(names(anova.saps), each=2), 
+                                               paste(rep(names(anova.saps.uni), each=2), 
                                                      rep(c('D', 'P'), 3), sep='_'),
                                                NULL)))
 
@@ -386,13 +383,11 @@ saplingAnovaTable.uni <- do.call(what='abind', args=list(lapply(anova.saps.uni, 
 saplingAnovaTable.bi <- do.call(what='abind', args=list(lapply(anova.saps.bi, extractAnova), 
                                 along=2, 
                                 new.names=list(NULL,
-                                               paste(rep(names(anova.saps), each=2), 
+                                               paste(rep(names(anova.saps.bi), each=2), 
                                                      rep(c('D', 'P'), 3), sep='_'),
                                                NULL)))
 
-
 saplingAnovaTable.uni
-
 saplingAnovaTable.bi
 ```
 
@@ -494,8 +489,10 @@ siteranefs %>% ggplot(aes(sample=value)) + geom_qq() +
 
 ```
 
+### 3.2 Bivariate Model
+#### 3.2.1 Fit bivariate model
 
-```{r fullmodels}
+```{r bivariate_intModel}
 ## Full models with Juveniles and saplings (pair2)
 intMod.bi <- lmeHyperframe(hyperdat.bi.sel.c, 0:rmax,
                          fixed="stage*huntpres*HSD",
@@ -503,6 +500,9 @@ intMod.bi <- lmeHyperframe(hyperdat.bi.sel.c, 0:rmax,
                          computeK=FALSE)
 ```
 
+#### 3.2.2 Model diagnostics
+
+Checking the model diagnostics for the interactive bivariate model
 
 
 ```{r fullmodeldiagnostics_bi}
@@ -558,7 +558,9 @@ ggplot(data=resids.bi, aes(x=distance, y=resid, colour=HSD, group=species)) +
 
 ```
 
-```{r fullmodelboot}
+### 3.3 Interactive model confidence intervals
+
+```{r fullmodelboot, eval=!usecluster}
 ## construct data to make predictions for figures with
 preddat.int <-  expand.grid(stage=c('S', 'J'), 
                             huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
@@ -582,27 +584,163 @@ plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
 
 ```
 
-#### 3.3.5 Cluster results
-Once again, we can run the bootstrapping on a cluster and use those results here.
+#### 3.3.1 Obtaining the results from the cluster
+Once again, we can run the bootstrapping on a cluster and we can use those results here.
 
-```{r clusterresultsJuvs, evaluate=TRUE}
+```{r clusterresultsJuvs, eval=usecluster}
 ## Alternatively, load results from cluster
-load("../data/clusterResults/PeruDispersal_v7_rmax15.RData")
+load("../results/v7.0/PeruDispersal_v7_rmax15.RData")
 
 intMod.uni.boot <- results$uni$boot
 intMod.bi.boot <- results$bi$boot
 preddat.int <-  results$preddat
 ```
 
-
-
+#### 3.3.2 Plotting the coefficients
 
 ```{r fullmodelcoefplot}
 plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
           effectplot.Kfunctionlme(intMod.bi.boot), 
           labels=c('Univariate', 'Bivariate'))
+```
+
+### 3.4 Formal tests of hypotheses 2 and 3
+
+### 3.4.1 Univariate
+
+The formal anova tests of the full model are very time consuming. It is better to do this on a cluster. First we look at the univariate case
+
+```{r intmodel_anova_uni, eval = !usecluster}
+## Main effects
+intMod.uni1way <- lmeHyperframe(hyperdat.uni.sel, 0:rmax,
+                         fixed="stage + huntpres+HSD",
+                         random="1|site/Spp",
+                         computeK=FALSE)
+anova.int.uni.1way  <- sapply(c('stage', 'huntpres', 'HSD'), function(term)
+{
+    bootstrap.compare.lme(intMod.uni1way, term=term,
+                          dists=list(1:rmax, 1:5, 1:10, 5:10), nboot=nsim, ncore=7)
+}, simplify=FALSE)
+
+## 2 way interactions
+intMod.uni2way <- lmeHyperframe(hyperdat.uni.sel, 0:rmax,
+                         fixed="(stage + huntpres + HSD)^2",
+                         random="1|site/Spp",
+                         computeK=FALSE)
+
+
+anova.int.uni.2way <- sapply(c('stage:huntpres', 'stage:HSD', 'huntpres:HSD'), function(term)
+{
+    bootstrap.compare.lme(intMod.uni2way, term=term,
+                          dists=list(1:rmax, 1:5, 1:10, 5:10), nboot=nsim, ncore=7)
+}, simplify=FALSE)
+
+## 3-way interaction
+anova.int.uni.3way <-
+    bootstrap.compare.lme(intMod.uni, term="stage:huntpres:HSD",
+                          dists=list(1:rmax, 1:5, 1:10, 5:10), nboot=nsim, ncore=7)
 
 ```
+
+### 3.4.2 Bivariate
+
+Then we look at the bivariate case
+```{r intmodel_anova_bi, eval = !usecluster}
+## Main effects
+intMod.bi1way <- lmeHyperframe(hyperdat.bi.sel, 0:rmax,
+                         fixed="stage + huntpres+HSD",
+                         random="1|site/Spp",
+                         computeK=FALSE)
+
+## 2 way interactions
+anova.int.bi.1way  <- sapply(c('stage', 'huntpres', 'HSD'), function(term)
+{
+    bootstrap.compare.lme(intMod.bi1way, term=term,
+                          dists=list(1:rmax, 1:5, 1:10, 5:10), nboot=nsim, ncore=7)
+}, simplify=FALSE)
+
+
+intMod.bi2way <- lmeHyperframe(hyperdat.bi.sel, 0:rmax,
+                         fixed="(stage + huntpres + HSD)^2",
+                         random="1|site/Spp",
+                         computeK=FALSE)
+
+## 3-way interaction term
+anova.int.bi.2way <- sapply(c('stage:huntpres', 'stage:HSD', 'huntpres:HSD'), function(term)
+{
+    bootstrap.compare.lme(intMod.bi2way, term=term,
+                          dists=list(1:rmax, 1:5, 1:10, 5:10), nboot=nsim, ncore=7)
+}, simplify=FALSE)
+
+anova.int.uni.3way <-
+    bootstrap.compare.lme(intMod.uni, term="stage:huntpres:HSD",
+                          dists=list(1:rmax, 1:5, 1:10, 5:10), nboot=nsim, ncore=7)
+anova.int.uni.3way
+```
+
+#### 3.4.3 Cluster results
+We can load the results from the cluster where a larger number of iterations are possible. 
+
+```{r intModelAnovaClus, eval=usecluster}
+load("../results/v7.0/Peru_v71_wayAnovaJuvs_rmax15.RData")
+load("../results/v7.0/Peru_v72_wayAnovaJuvs_rmax15.RData")
+load("../results/v7.0/Peru_v73_wayAnovaJuvs_rmax15.RData")
+
+# univariate
+anova.int.uni.1way <- 
+  lapply(anovaJuvs1$uni$anovas, function(x) x$dtable)
+
+names(anova.int.uni.1way) <- sapply(anovaJuvs1$uni$anovas, function(x) x[[1]]$term)
+
+anova.int.uni.2way <- 
+  lapply(anovaJuvs2$uni$anovas, function(x) x$dtable)
+
+names(anova.int.uni.2way) <- sapply(anovaJuvs2$uni$anovas, function(x) x[[1]]$term)
+
+anova.int.uni.3way <- list(anovaJuvs3$uni$anovas[[1]]$dtable)
+anova.int.uni <- c(anova.int.uni.1way, anova.int.uni.2way, 
+                   "stage:HSD:hunt" = anova.int.uni.3way)
+
+niterFind(anovaJuvs2$uni)
+
+## bivariate
+anova.int.bi.1way <- 
+  lapply(anovaJuvs1$bi, function(x) x$dtable)
+names(anova.int.bi.1way) <- sapply(anovaJuvs1$bi, function(x) x[[1]]$term)
+
+
+anova.int.bi.2way <- 
+  lapply(anovaJuvs2$bi, function(x) x$dtable)
+names(anova.int.bi.2way) <- sapply(anovaJuvs2$bi, function(x) x[[1]]$term)
+
+anova.int.bi.3way <- list(anovaJuvs3$bi[[1]]$dtable)
+
+anova.int.bi <- c(anova.int.bi.1way, anova.int.bi.2way, 
+                  "stage:HSD:hunt" =anova.int.bi.3way)
+```
+
+Now we can put all the results together in a table.
+
+```{r anovatables_int}
+intAnovaTable.uni <- do.call(what='abind', args=list(lapply(anova.int.uni, extractAnova), 
+                                along=2, 
+                                new.names=list(NULL,
+                                               paste(rep(names(anova.int.uni), each=2), 
+                                                     rep(c('D', 'P'), 3), sep='_'),
+                                               NULL)))
+
+intAnovaTable.bi <- do.call(what='abind', args=list(lapply(anova.int.bi, extractAnova), 
+                                along=2, 
+                                new.names=list(NULL,
+                                               paste(rep(names(anova.int.bi), each=2), 
+                                                     rep(c('D', 'P'), 3), sep='_'),
+                                               NULL)))
+
+intAnovaTable.uni
+intAnovaTable.bi
+
+```
+
 
 ```{r fullmodelplotting}
 ################################################################################
@@ -624,7 +762,6 @@ int.plotdat$HSD <-  factor(int.plotdat$HSD, labels=c('Insensitive', 'Sensitive')
 int.plotdat <- int.plotdat[order(int.plotdat$distance),]
 
 ## Make plots
-
 pl.int.bi <-
     ggplot(int.plotdat, aes(x=distance, y=K.bi, ymin=lcl.bi, ymax=ucl.bi,
                     colour=stage, fill=stage)) +
@@ -636,7 +773,6 @@ pl.int.bi <-
     labs(x='Distance, r, (m)',
          y=expression(paste('[', (hat(K)(r)[con]-hat(K)(r)[het]), ']')),
         color='Cohort', fill='Cohort')
-pl.int.bi
 
 pl.int.uni <- ggplot(int.plotdat, aes(x=distance, y=K.uni, ymin=lcl.uni, ymax=ucl.uni,
                                       colour=stage, fill=stage)) +
@@ -648,7 +784,6 @@ pl.int.uni <- ggplot(int.plotdat, aes(x=distance, y=K.uni, ymin=lcl.uni, ymax=uc
     labs(x='Distance, r, (m)',
          y=expression(paste('[', (hat(K)(r)[con]-hat(K)(r)[het]), ']')),
          color='Cohort', fill='Cohort')
-pl.int.uni
 
 ## Format figures (1 and 3)
 z.bi <- ggplot_gtable(ggplot_build(pl.int.bi))
@@ -713,61 +848,10 @@ ggdraw(z.uni)
 ## Do not run this unless you want to change figures (and have done at least 999 iterations
 ## commented out to prevent mistakes
 
-png(file='../../huntingpaper/figures/Figure1_uninew.png', width=6, height=4, units='in', res=600)
-ggdraw(z.uni)
-dev.off()
+# png(file='../../huntingpaper/figures/Figure1_uninew.png', width=6, height=4, units='in', res=600)
+# ggdraw(z.uni)
+# dev.off()
 
-```
-
-Now formal anova type tests
-
-```{r fullmodel_anova}
-
-anova3wayint <-
-    bootstrap.compare.lme(intMod.uni, term="stage:huntpres:HSD",
-                          dists=list(1:5, 1:10, 1:rmax), nboot=nsim, ncore=7)
-
-intMod.uni1way <- lmeHyperframe(hyperdat.uni.sel, 0:rmax,
-                         fixed="stage + huntpres+HSD",
-                         random="1|site/Spp",
-                         computeK=FALSE)
-
-
-anova1wayint <- sapply(c('stage', 'huntpres', 'HSD'), function(term)
-{
-    bootstrap.compare.lme(sapMod.uni1way, term=term,
-                          dists=1:rmax, nboot=nsim, ncore=7)
-}, simplify=FALSE)
-
-
-intMod.uni2way <- lmeHyperframe(hyperdat.uni.sel, 0:rmax,
-                         fixed="(stage + huntpres + HSD)^2",
-                         random="1|site/Spp",
-                         computeK=FALSE)
-
-
-##interaction term
-anova2wayint <- sapply(c('stage:huntpres', 'stage:HSD', 'huntpres:HSD'), function(term)
-{
-    bootstrap.compare.lme(intMod.uni2way, term=term,
-                          dists=1:rmax, nboot=nsim, ncore=7)
-}, simplify=FALSE)
-
-
-
-intAnovaTable <- cbind(sapply(anova1wayint[1:2], function(x) x[1:2]),
-                       sapply(anova2wayint[1:2], function(x) x[1:2]),
-                           "stage:huntpres:HSD" = anova3wayint[1:2])
-intAnovaTable
-## load the results of the anovas - run on computing grid
-## This will only run after the other analyses have been run and results saved.
-## This analysis includes all except for wind dispersed species.
-# 
-# ## function to extract the data we need from these results
-# extractAnovas <- function(Aobj, type){
-#     Aobj <- Aobj[[type]]$anovas
-#     sapply(Aobj, function(x)  x[['dtable']][c("term", "D", "p")], simplify=TRUE)
-# }
 ```
 
 ## 5 Description of data set

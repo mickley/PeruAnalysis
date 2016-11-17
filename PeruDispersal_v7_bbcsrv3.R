@@ -84,7 +84,7 @@ results <- list('bi' = list('model' = intMod.bi,
                   'boot' = intMod.bi.boot),
                 'uni' = list('model '= intMod.uni,
                   'boot' = intMod.uni.boot),
-                'preddat' = preddat.int)
+                'preddat' = preddat.int, nsim=nboot)
 ## Save object
 objname <- 'results'
 

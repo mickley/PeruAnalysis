@@ -91,7 +91,7 @@ hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1) ## Univariate
 
 Set number of iterations for bootstrapping - keep small for trials (takes a long time). The code was run on a HPC for paper
 ```{r setpars}
-nsim <- 7
+nsim <- 99
 rmax ## double check  value set in previous code
 ```
 
@@ -335,21 +335,21 @@ anova.saps<- c(anovaSaps1, "huntpres:HSD" = list(anovaSaps2))
 We can also run the analysis on a cluster and use the results. Here we use that approach.
 
 ```{r load_anova, eval=usecluster}
-load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15.RData")
+load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim999.RData")
 
-load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15.RData")
+load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim999.RData")
 
 ## univariate
 anova.saps.uni.1way <- 
   lapply(anovaSaps1$uni$anovas, function(x) x$dtable)
 names(anova.saps.uni.1way) <- sapply(anovaSaps1$uni$anovas, function(x) x[[1]]$term)
-anova.saps.uni <- c(anova.saps.uni.1way, "huntpres:HSD" = anovaSaps2$uni$anovas[[1]])
+anova.saps.uni <- c(anova.saps.uni.1way, "huntpres:HSD" = list(anovaSaps2$uni$anovas[[1]]$dtable))
 
 ## bivariate
 anova.saps.bi.1way <- 
   lapply(anovaSaps1$bi$anovas, function(x) x$dtable)
 names(anova.saps.bi.1way) <- sapply(anovaSaps1$bi$anovas, function(x) x[[1]]$term)
-anova.saps.bi <- c(anova.saps.bi.1way, "huntpres:HSD" = anovaSaps2$bi$anovas[[1]])
+anova.saps.bi <- c(anova.saps.bi.1way, "huntpres:HSD" = list(anovaSaps2$bi$anovas[[1]]$dtable))
 
 ```
 
@@ -402,6 +402,8 @@ saplingAnovaTable.bi
 
 ```{r univariate_intMod}
 ## Full model with Juveniles and saplings (pair2)
+hyperdat.uni.sel.c2 <- subset(hyperdat.uni.sel.c, Abiotic!=1)
+
 intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,
                          fixed="stage*huntpres*HSD",
                          random="1|site/Spp",
@@ -566,7 +568,7 @@ preddat.int <-  expand.grid(stage=c('S', 'J'),
                             huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
                             HSD = c(0, 1))
 ## RHS of model formula
-allform <- update(formula(intMod.bi[[1]]), NULL~.)
+allform <- update(formula(intMod.uni[[1]]), NULL~.)
 ## Make model matrix
 modmat.int <-  model.matrix(allform, data=preddat.int)
 
@@ -584,16 +586,44 @@ plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
 
 ```
 
+
+```{r fullmodelboot, eval=!usecluster}
+## construct data to make predictions for figures with
+preddat.int <-  expand.grid(stage=c('S', 'J'), 
+                            huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
+                            disp = levels(hyperdat.uni.sel.c$disp))
+
+## RHS of model formula
+allform <- update(formula(intMod.unidisp[[1]]), NULL~.)
+## Make model matrix
+modmat.int <-  model.matrix(allform, data=preddat.int)
+
+## Bootstrapping
+## Univariate
+system.time(intMod.uni.boot <-  bootstrap.t.CI.lme(intMod.unidisp, lin.comb.Ct=modmat.int, nboot=nsim,
+                                       alpha=0.05, ncore=7))
+
+## bivariate
+system.time(intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi, lin.comb.Ct=modmat.int, nboot=nsim,
+                                                  alpha=0.05, ncore=7))
+
+plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
+          effectplot.Kfunctionlme(intMod.bi.boot), labels=c('Uni', 'bi'))
+
+```
+
 #### 3.3.1 Obtaining the results from the cluster
 Once again, we can run the bootstrapping on a cluster and we can use those results here.
 
 ```{r clusterresultsJuvs, eval=usecluster}
 ## Alternatively, load results from cluster
-load("../results/v7.0/PeruDispersal_v7_rmax15.RData")
-
+load("../results/v7.0/PeruDispersal_v7_rmax15_nsim999.RData")
+results$nsim
 intMod.uni.boot <- results$uni$boot
 intMod.bi.boot <- results$bi$boot
 preddat.int <-  results$preddat
+
+clusterNiter <- results$nsim
 ```
 
 #### 3.3.2 Plotting the coefficients
@@ -684,12 +714,12 @@ We can load the results from the cluster where a larger number of iterations are
 ```{r intModelAnovaClus, eval=usecluster}
 load("../results/v7.0/Peru_v71_wayAnovaJuvs_rmax15.RData")
 load("../results/v7.0/Peru_v72_wayAnovaJuvs_rmax15.RData")
-load("../results/v7.0/Peru_v73_wayAnovaJuvs_rmax15.RData")
+load("../results/v7.0/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999.RData")
 
 # univariate
 anova.int.uni.1way <- 
   lapply(anovaJuvs1$uni$anovas, function(x) x$dtable)
-
+(anovaJuvs1$uni$anovas[[1]][[1]]$D$Dboot)
 names(anova.int.uni.1way) <- sapply(anovaJuvs1$uni$anovas, function(x) x[[1]]$term)
 
 anova.int.uni.2way <- 
@@ -700,8 +730,11 @@ names(anova.int.uni.2way) <- sapply(anovaJuvs2$uni$anovas, function(x) x[[1]]$te
 anova.int.uni.3way <- list(anovaJuvs3$uni$anovas[[1]]$dtable)
 anova.int.uni <- c(anova.int.uni.1way, anova.int.uni.2way, 
                    "stage:HSD:hunt" = anova.int.uni.3way)
-
+niterFind(anovaJuvs1$uni)
 niterFind(anovaJuvs2$uni)
+niterFind(anovaJuvs3$uni)
+
+
 
 ## bivariate
 anova.int.bi.1way <- 
@@ -768,7 +801,7 @@ pl.int.bi <-
     geom_ribbon(alpha=0.5, colour=NA) +  geom_line() +
     facet_grid(HSD~  huntpres, scales="free_y") +
     geom_abline(intercept=0, slope=0, linetype='dashed', col='grey') +
-    theme_bw() + theme_cust +
+    theme_bw() + theme_cust + scale_x_continuous(limits=c(0, 15)) +
     scale_color_brewer(palette='Set1')+ scale_fill_brewer(palette='Pastel1') +
     labs(x='Distance, r, (m)',
          y=expression(paste('[', (hat(K)(r)[con]-hat(K)(r)[het]), ']')),
@@ -779,7 +812,7 @@ pl.int.uni <- ggplot(int.plotdat, aes(x=distance, y=K.uni, ymin=lcl.uni, ymax=uc
     geom_ribbon(alpha=0.5, colour=NA) +  geom_line() +
     facet_grid(HSD~  huntpres) +
     geom_abline(intercept=0, slope=0, linetype='dashed', col='grey') +
-    theme_bw() + theme_cust +
+    theme_bw() + theme_cust + scale_x_continuous(limits=c(0, 15)) +
     scale_color_brewer(palette='Set1')+ scale_fill_brewer(palette='Pastel1') +
     labs(x='Distance, r, (m)',
          y=expression(paste('[', (hat(K)(r)[con]-hat(K)(r)[het]), ']')),
@@ -810,7 +843,7 @@ z.bi <- gtable_add_grob(z.bi,
                           textGrob("Disperser sensitivity", rot = -90,
                                    gp = gpar(fontsize=12))),
                      t=5, l=9, b=7, r=9, name = paste(runif(2)))
-ggdraw(z.bi)
+##ggdraw(z.bi)
 
 
 ## Univariate plot
@@ -848,10 +881,24 @@ ggdraw(z.uni)
 ## Do not run this unless you want to change figures (and have done at least 999 iterations
 ## commented out to prevent mistakes
 
-# png(file='../../huntingpaper/figures/Figure1_uninew.png', width=6, height=4, units='in', res=600)
-# ggdraw(z.uni)
-# dev.off()
-
+if(clusterNiter >= 999){
+  png(file='../../huntingpaper/figures/Figure1_uni.png', width=6, height=4, units='in', res=600)
+  ggdraw(z.uni)
+  dev.off()
+  
+  pdf(file='../../huntingpaper/figures/Figure1_uni.pdf', width=6, height=4)
+  ggdraw(z.uni)
+  dev.off()
+  
+  png(file='../../huntingpaper/figures/Figure3_bi.png', width=6, height=4, units='in', res=600)
+  ggdraw(z.bi)
+  dev.off()
+  
+  pdf(file='../../huntingpaper/figures/Figure3_bi.pdf', width=6, height=4)
+  ggdraw(z.bi)
+  dev.off()
+  
+}
 ```
 
 ## 5 Description of data set

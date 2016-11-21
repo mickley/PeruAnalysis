@@ -29,6 +29,10 @@ load(file='../data/data4peruanalysisv7.RData')
 hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Unkwn !=1) 
 hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1)
 
+## alternative version - removing abiotic dispersed species
+hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Abiotic !=1) 
+hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Abiotic !=1)
+
 
 ####################################################################
 ## Fitting the models
@@ -76,7 +80,7 @@ tests.bi <- lapply(terms, function(term){
 anovaJuvs <- list('uni' = tests.uni, 'bi' = tests.bi,
                   intlevel=intlevel, type=type)
 
-objname <- paste0("anovaJuvs", intlevel)
+objname <- paste0("anovaJuvs_noabiotic", intlevel)
 assign(objname, anovaJuvs)
 
 
@@ -85,4 +89,4 @@ system(paste('mkdir -p', dir.name))
 
 save(list=objname, file=paste0(dir.name, '/', 'Peru_v7_',
                      intlevel, '_wayAnovaJuvs', '_rmax', rmax,
-                     '_nsim', nboot, '.RData'))
+                     '_nsim', nboot, '_NoAbiotic', '.RData'))

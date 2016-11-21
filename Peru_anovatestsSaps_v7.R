@@ -30,8 +30,8 @@ hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1)
 hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Unkwn !=1) 
 
 ## alternative version - removing abiotic dispersed species
-hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Abiotic !=1) 
-hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Abiotic !=1)
+hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c,  Abiotic !=1) 
+hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c, Abiotic !=1)
 
 
 ## select sapling data

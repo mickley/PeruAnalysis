@@ -61,6 +61,22 @@ usecluster <- TRUE ## run bootstraps locally (FALSE) or use results from cluster
 
 ```{r convenienceFuncs}
 source("PeruConvenienceFunctions.R")
+
+## also some specific functions for this analysis
+## FUnctinon to extract results table
+extractAnova <-  function(Aobj){
+  require(abind)
+    statlists <- lapply(Aobj[1:2], function(s)
+  {
+      st <- do.call('rbind', lapply(s, function(d) d[[1]]))
+    rownames(st) <-  sapply(s, function(x) paste(x$dists[1], x$dists[length(x$dists)], sep='-'))
+    return(st)
+  })
+  abind(statlists, along=3)
+}
+## Function that extracts the number of iterations.
+niterFind <- function(x) length(x$anovas[[1]]$dtable$D[[1]]$D.boot)
+
 ```
 
 
@@ -336,39 +352,38 @@ We can also run the analysis on a cluster and use the results. Here we use that 
 
 ```{r load_anova, eval=usecluster}
 load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim999.RData")
-
 load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim999.RData")
+
+load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim99_NoAbiotic.RData")
+load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim99_NoAbiotic.RData")
 
 ## univariate
 anova.saps.uni.1way <- 
   lapply(anovaSaps1$uni$anovas, function(x) x$dtable)
 names(anova.saps.uni.1way) <- sapply(anovaSaps1$uni$anovas, function(x) x[[1]]$term)
+# anova.saps.uni.1way <- 
+#   lapply(anovaSaps_noabiotic1$uni$anovas, function(x) x$dtable)
+##names(anova.saps.uni.1way) <- sapply(anovaSaps_noabiotic1$uni$anovas, function(x) x[[1]]$term)
 anova.saps.uni <- c(anova.saps.uni.1way, "huntpres:HSD" = list(anovaSaps2$uni$anovas[[1]]$dtable))
+
+anova.saps.uni <- c(anova.saps.uni.1way, "huntpres:HSD" = list(anovaSaps_noabiotic2$uni$anovas[[1]]$dtable))
 
 ## bivariate
 anova.saps.bi.1way <- 
   lapply(anovaSaps1$bi$anovas, function(x) x$dtable)
 names(anova.saps.bi.1way) <- sapply(anovaSaps1$bi$anovas, function(x) x[[1]]$term)
+anova.saps.bi.1way <- 
+  lapply(anovaSaps_noabiotic1$bi$anovas, function(x) x$dtable)
+names(anova.saps.bi.1way) <- sapply(anovaSaps_noabiotic1$bi$anovas, function(x) x[[1]]$term)
+
 anova.saps.bi <- c(anova.saps.bi.1way, "huntpres:HSD" = list(anovaSaps2$bi$anovas[[1]]$dtable))
+anova.saps.bi <- c(anova.saps.bi.1way, "huntpres:HSD" = list(anovaSaps_noabiotic2$bi$anovas[[1]]$dtable))
 
 ```
 
 In either case, we then extract the relevant results 
 
 ```{r saplinganovaresults}
-## FUnctinon to extract results table
-extractAnova <-  function(Aobj){
-  require(abind)
-    statlists <- lapply(Aobj[1:2], function(s)
-  {
-      st <- do.call('rbind', lapply(s, function(d) d[[1]]))
-    rownames(st) <-  sapply(s, function(x) paste(x$dists[1], x$dists[length(x$dists)], sep='-'))
-    return(st)
-  })
-  abind(statlists, along=3)
-}
-## Function that extracts the number of iterations.
-niterFind <- function(x) length(x$anovas[[1]]$dtable$D[[1]]$D.boot)
 
 
 ## univariate
@@ -712,14 +727,14 @@ anova.int.uni.3way
 We can load the results from the cluster where a larger number of iterations are possible. 
 
 ```{r intModelAnovaClus, eval=usecluster}
-load("../results/v7.0/Peru_v71_wayAnovaJuvs_rmax15.RData")
-load("../results/v7.0/Peru_v72_wayAnovaJuvs_rmax15.RData")
+load("../results/v7.0/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999.RData")
+load("../results/v7.0/Peru_v7_2_wayAnovaJuvs_rmax15_nsim999.RData")
 load("../results/v7.0/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999.RData")
 
 # univariate
 anova.int.uni.1way <- 
   lapply(anovaJuvs1$uni$anovas, function(x) x$dtable)
-(anovaJuvs1$uni$anovas[[1]][[1]]$D$Dboot)
+
 names(anova.int.uni.1way) <- sapply(anovaJuvs1$uni$anovas, function(x) x[[1]]$term)
 
 anova.int.uni.2way <- 

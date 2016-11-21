@@ -29,6 +29,10 @@ load(file='../data/data4peruanalysisv7.RData')
 hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1)
 hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Unkwn !=1) 
 
+## alternative version - removing abiotic dispersed species
+hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Abiotic !=1) 
+hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Abiotic !=1)
+
 
 ## select sapling data
 hyperdat.uni.saps.c <- subset(hyperdat.uni.sel.c, stage == 'S')
@@ -82,7 +86,7 @@ tests.bi <- list(anovas=tests.bi, model=intMod.bi)
 anovaSaps <- list('uni' = tests.uni, 'bi' = tests.bi,
                   intlevel=intlevel, type=type)
 
-objname <- paste0("anovaSaps", intlevel)
+objname <- paste0("anovaSaps_noabiotic", intlevel)
 assign(objname, anovaSaps)
 
 dir.name <- paste0('../results/results_', Sys.Date())
@@ -90,4 +94,4 @@ system(paste('mkdir -p', dir.name))
 
 save(list=objname, file=paste0(dir.name, '/Peru_v7_',
                      intlevel, '_wayAnovaSaps',
-                     '_rmax', rmax, '_nsim', nboot,'.RData'))
+                     '_rmax', rmax, '_nsim', nboot, "_NoAbiotic", '.RData'))

@@ -58,7 +58,7 @@ intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,
 tests.uni <- lapply(terms, function(term) {
     list(
          'dtable' =  bootstrap.compare.lme(mods = intMod.uni,
-           term=term, dists=list(1:rmax, 1:5, 1:10, 5:10),
+           term=term, dists=list(1:rmax, 1:5, 5:10, 10:15),
            nboot=nboot, ncore=ncore,
            iseed=rseed)
          )})
@@ -69,7 +69,7 @@ tests.bi <- lapply(terms, function(term){
   list(
        'dtable' = bootstrap.compare.lme(mods = intMod.bi,
          term=term,
-         dists=list(1:rmax, 1:5, 1:10, 5:10),
+         dists=list(1:rmax, 1:5, 5:10, 10:15),
          nboot=nboot, ncore=ncore, iseed=rseed)
        )})
 
@@ -84,4 +84,5 @@ dir.name <- paste0('../results/results_', Sys.Date())
 system(paste('mkdir -p', dir.name))
 
 save(list=objname, file=paste0(dir.name, '/', 'Peru_v7_',
-                     intlevel, '_wayAnovaJuvs', '_rmax', rmax, '.RData'))
+                     intlevel, '_wayAnovaJuvs', '_rmax', rmax,
+                     '_nsim', nboot, '.RData'))

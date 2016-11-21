@@ -13,10 +13,10 @@
 #$ -S /bin/bash
 
 # send to high memory queue
-#$ -q highmem.q
+#$ -q all.q
 
 ## Request the required number of cpus per job
-#$ -pe smp 8
+#$ -pe smp 4
 
 # combine standard error and output files
 #$ -j y

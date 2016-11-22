@@ -14,7 +14,7 @@
 #PBS -S /bin/bash
 
 ## Request the required number of cpus per job
-#PBS -l nodes=1:ppn=48
+#PBS -l nodes=1:ppn=16
 
 # combine standard error and output files
 #PBS -j  oe

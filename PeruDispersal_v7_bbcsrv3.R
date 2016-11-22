@@ -36,6 +36,9 @@ hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Unkwn !=1)
  ## univariate
 hyperdat.uni.sel.c <- subset(hyperdat.uni.sel,  Unkwn !=1)
 
+hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c,  Abiotic !=1)
+## univariate
+hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c,  Abiotic !=1)
 
 ## Fit models
 ## Bivariate
@@ -95,6 +98,6 @@ system(paste('mkdir -p', dir.name))
 
 save(list=objname, file=paste0(dir.name, '/',
                      paste0("PeruDispersal_v7",
-                             '_rmax', rmax,
+                             '_rmax', rmax, "_NoAbiotic",
                             ".RData")
                      ))

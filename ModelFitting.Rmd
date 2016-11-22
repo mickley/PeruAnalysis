@@ -354,16 +354,16 @@ We can also run the analysis on a cluster and use the results. Here we use that 
 load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim999.RData")
 load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim999.RData")
 
-load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim99_NoAbiotic.RData")
-load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim99_NoAbiotic.RData")
+load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
+load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
 
 ## univariate
 anova.saps.uni.1way <- 
   lapply(anovaSaps1$uni$anovas, function(x) x$dtable)
 names(anova.saps.uni.1way) <- sapply(anovaSaps1$uni$anovas, function(x) x[[1]]$term)
-# anova.saps.uni.1way <- 
-#   lapply(anovaSaps_noabiotic1$uni$anovas, function(x) x$dtable)
-##names(anova.saps.uni.1way) <- sapply(anovaSaps_noabiotic1$uni$anovas, function(x) x[[1]]$term)
+anova.saps.uni.1way <-
+  lapply(anovaSaps_noabiotic1$uni$anovas, function(x) x$dtable)
+names(anova.saps.uni.1way) <- sapply(anovaSaps_noabiotic1$uni$anovas, function(x) x[[1]]$term)
 anova.saps.uni <- c(anova.saps.uni.1way, "huntpres:HSD" = list(anovaSaps2$uni$anovas[[1]]$dtable))
 
 anova.saps.uni <- c(anova.saps.uni.1way, "huntpres:HSD" = list(anovaSaps_noabiotic2$uni$anovas[[1]]$dtable))

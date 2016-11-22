@@ -42,10 +42,12 @@ export nclust=$NSLOTS
 ## To run the code after
 ## resetting nsim and rmax do
 ## qsub -v nsim=999,rmax=10 peruDispersal.sh
+
 nsim=${nsim:-99}
 rmax=${rmax:-15}
 
 echo 'number of cpus requested = ' $nclust
 
-R CMD BATCH ~/Peru/PeruDispersal_v4_bbcsrv3.R ~/Peru/perudisp$PBS_ARRAYID\_job$PBS_JOBID.Rout
+R CMD BATCH ~/Peru/PeruAnalysis/PeruDispersal_v7_bbcsrv3.R ~/Peru/progreports/perudisp\_v7\_niter$nsim\_rmax$rmax\_$PBS_ARRAYID\_job$PBS_JOBID.Rout
 
+# R CMD BATCH ~/Peru/PeruDispersal_v4_bbcsrv3.R ~/Peru/perudisp$PBS_ARRAYID\_job$PBS_JOBID.Rout

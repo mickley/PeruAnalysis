@@ -10,7 +10,7 @@
 ## use current working directory
 #$ -cwd
 
-# set to the bash shell for PBS
+# set to the bash shell 
 #$ -S /bin/bash
 
 # send to general queue

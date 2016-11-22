@@ -32,7 +32,7 @@ echo "Running  Peru spatial analyses" $PBS_JOBID
 ## or set scl to 0 which uses code in R to set scl = 5
 ## for species with mean dispersal < 5 and 10 othewise
 export nclust=$PBS_NUM_PPN
-export arrayid=$PBS_ARRAYID
+##export arrayid=$PBS_ARRAYID
 
 # set global parameters for analysis
 export nclust=$NSLOTS
@@ -48,6 +48,6 @@ rmax=${rmax:-15}
 
 echo 'number of cpus requested = ' $nclust
 
-R CMD BATCH ~/Peru/PeruAnalysis/PeruDispersal_v7_bbcsrv3.R ~/Peru/progreports/perudisp\_v7\_niter$nsim\_rmax$rmax\_$PBS_ARRAYID\_job$PBS_JOBID.Rout
+~/programs/R/R-3.2.3/bin/R CMD BATCH ~/Peru/PeruAnalysis/PeruDispersal_v7_bbcsrv3.R ~/Peru/progreports/perudisp\_v7\_niter$nsim\_rmax$rmax\_job$PBS_JOBID.Rout
 
 # R CMD BATCH ~/Peru/PeruDispersal_v4_bbcsrv3.R ~/Peru/perudisp$PBS_ARRAYID\_job$PBS_JOBID.Rout

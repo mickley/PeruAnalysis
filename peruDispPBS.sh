@@ -3,6 +3,10 @@
 # Shell script to run all the different species 
 # while setting the various parameters
 
+## use current working directory
+cd $PBS_O_WORKDIR
+
+
 # Now set PBS options
 # set job name
 #PBS -N perudisp
@@ -33,9 +37,6 @@ echo "Running  Peru spatial analyses" $PBS_JOBID
 ## for species with mean dispersal < 5 and 10 othewise
 export nclust=$PBS_NUM_PPN
 ##export arrayid=$PBS_ARRAYID
-
-# set global parameters for analysis
-export nclust=$NSLOTS
 
 ## set default values for various variables
 ## these can be overriden from the command line

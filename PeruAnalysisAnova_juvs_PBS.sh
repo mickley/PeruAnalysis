@@ -1,12 +1,13 @@
+## set shell
 #!/bin/bash
 
-# Shell script to run all the different species 
+# Shell script to run on mulitple cores
 # while setting the various parameters
 
-
 # Now set PBS options
+
 # set job name
-#PBS -N perudisp
+#PBS -N  peruAOVJuvs
 
 # keep job output
 #PBS -k o
@@ -25,11 +26,14 @@
 # to email address
 #PBS -M  robert.bagchi@uconn.edu
 
-echo "Running  Peru spatial analyses" $PBS_JOBID
+## Iterate through interaction levels
+#PBS -t 1-3
 
-# set global parameters for analysis
+echo "Running  Peru spatial analysis Anova " $PBS_JOBID
+
+
 export nclust=$PBS_NUM_PPN
-##export arrayid=$PBS_ARRAYID
+export arrayid=$PBS_ARRAYID
 
 ## use current working directory
 cd $PBS_O_WORKDIR
@@ -38,11 +42,12 @@ cd $PBS_O_WORKDIR
 ## these can be overriden from the command line
 ## To run the code after
 ## resetting nsim and rmax do
-## qsub -v nsim=999,rmax=10 peruDispersal.sh
+## qsub -v nsim=999,rmax=10 PeruAnalysisAnova_juvs_PBS.sh
 
 nsim=${nsim:-99}
 rmax=${rmax:-15}
 
 echo 'number of cpus requested = ' $nclust
 
-~/programs/R/R-3.2.3/bin/R CMD BATCH ~/Peru/PeruAnalysis/PeruDispersal_v7_bbcsrv3.R ~/Peru/progreports/perudisp\_v7\_niter$nsim\_rmax$rmax\_job$PBS_JOBID.Rout
+# execute the R commands in the R script R_script
+~/programs/R/R-3.2.3/bin/R CMD BATCH ~/Peru/PeruAnalysis/Peru_anovatestsJuvs_v7.R ~/Peru/progreports/peru_anovaJuvs_v7\_niter$nsim\_rmax$rmax\_$arrayid.Rout

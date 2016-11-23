@@ -15,7 +15,6 @@ rmax <- as.numeric(Sys.getenv('rmax')) ## maximum distance
 # nopl <- as.numeric(Sys.getenv('nopl')) ## exclude Pseudolmedia laevis?
 # noqw <- as.numeric(Sys.getenv('noqw')) ## exclude Quarraribea laevis?
 ncore <- as.numeric(Sys.getenv("nclust"))
-ncore <- detectCores()
 nboot <- as.numeric(Sys.getenv('nsim')) ## number of simulations
 
 print(paste("No. cpus=", ncore, 

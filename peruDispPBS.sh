@@ -3,9 +3,6 @@
 # Shell script to run all the different species 
 # while setting the various parameters
 
-## use current working directory
-cd $PBS_O_WORKDIR
-
 
 # Now set PBS options
 # set job name
@@ -23,8 +20,8 @@ cd $PBS_O_WORKDIR
 # combine standard error and output files
 #PBS -j  oe
 
-# send email at end of job and if aborted
-#PBS -m ae
+# send email at beginning, end of job and if aborted
+#PBS -m bae
 # to email address
 #PBS -M  robert.bagchi@uconn.edu
 
@@ -38,6 +35,9 @@ echo "Running  Peru spatial analyses" $PBS_JOBID
 export nclust=$PBS_NUM_PPN
 ##export arrayid=$PBS_ARRAYID
 
+## use current working directory
+cd $PBS_O_WORKDIR
+
 ## set default values for various variables
 ## these can be overriden from the command line
 ## To run the code after
@@ -50,5 +50,3 @@ rmax=${rmax:-15}
 echo 'number of cpus requested = ' $nclust
 
 ~/programs/R/R-3.2.3/bin/R CMD BATCH ~/Peru/PeruAnalysis/PeruDispersal_v7_bbcsrv3.R ~/Peru/progreports/perudisp\_v7\_niter$nsim\_rmax$rmax\_job$PBS_JOBID.Rout
-
-# R CMD BATCH ~/Peru/PeruDispersal_v4_bbcsrv3.R ~/Peru/perudisp$PBS_ARRAYID\_job$PBS_JOBID.Rout

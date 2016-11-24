@@ -46,6 +46,7 @@ library(ggrepel)
 library(ggthemes)
 
 usecluster <- TRUE ## run bootstraps locally (FALSE) or use results from cluster (TRUE)
+windsep <- TRUE ## model wind dispersed species separately
 ```
 
 
@@ -103,11 +104,21 @@ load(file='../data/data4peruanalysisv7.RData')
 ## remove species with unknown dispersal
 hyperdat.bi.sel.c <- subset(hyperdat.bi.sel, Unkwn !=1) ## Bivariate
 hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1) ## Univariate
+
+if(windsep){
+  hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c, Abiotic!=1)
+  hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c, Abiotic!=1)
+  
+  hyperdat.uni.wind <- subset(hyperdat.uni.sel, Abiotic==1)
+  hyperdat.bi.wind <- subset(hyperdat.bi.sel, Abiotic==1)
+}
+
 ```
 
 Set number of iterations for bootstrapping - keep small for trials (takes a long time). The code was run on a HPC for paper
 ```{r setpars}
-nsim <- 99
+nsim <- 19
+nsimwind <- 999
 rmax ## double check  value set in previous code
 ```
 
@@ -123,6 +134,12 @@ The first part of the analysis only uses the sapling data because the first hypo
 ## First sapling only models
 hyperdat.uni.sap <- subset(hyperdat.uni.sel.c, stage=='S')
 hyperdat.bi.sap <- subset(hyperdat.bi.sel.c, stage=='S')
+
+if(windsep){
+  hyperdat.uni.sap.wind <- subset(hyperdat.uni.wind, stage=='S')
+  hyperdat.bi.sap.wind <- subset(hyperdat.bi.wind, stage=='S')
+}
+
 ```
 
 ### 2.2 Univariate sapling-only models
@@ -140,7 +157,6 @@ sapMod.uni <- lmeHyperframe(hyperdat.uni.sap, 0:rmax,
                          random="1|site",
                          computeK=FALSE)
 
-## can ignore the warninig - eventually the code will suppress this warning for distance=0
 ```
 
 #### 2.2.2 Model diagnostics
@@ -232,10 +248,8 @@ sapMod.bi <- lmeHyperframe(hyperdat.bi.sap, 0:rmax,
                          fixed="huntpres*HSD",
                          random="1|site",
                          computeK=FALSE)
-
-
-## can ignore the warninig - eventually the code will suppress this warning for distance=0
 ```
+
 
 #### 2.3.2 model diagnostics
 Then we can look at some of the diagnostics.
@@ -301,7 +315,50 @@ effectplot.Kfunctionlme(sapMod.bi.boot)
 ```
 
 
-### 2.4 Examining coefficients of models
+
+
+### 2.4 Wind dispersed species
+This is only run if the flag for analysing wind dispersed species separately is on.
+
+```{r windunimodel_confints, eval=windsep}
+
+sapMod.uni.wind <- lmeHyperframe(hyperdat.uni.sap.wind, 0:rmax,
+                         fixed="huntpres",
+                         random="1|site",
+                         computeK=FALSE)
+
+sapMod.bi.wind <- lmeHyperframe(hyperdat.bi.sap.wind, 0:rmax,
+                         fixed="huntpres",
+                         random="1|site",
+                         computeK=FALSE)
+
+## First make the model matrix
+preddat.sap.wind <-  expand.grid(stage=c('S'),
+                            huntpres=quantile(sitedat$huntpres, c(0.25, 0.75))
+                            )
+
+sapform.wind <- update(formula(sapMod.uni.wind[[1]]), NULL~.) ## extract formula (and remove lhs)
+modmat.sap.wind <-  model.matrix(sapform.wind, data=preddat.sap.wind) ## make model matrix
+
+## Bootstrapping
+sapMod.uni.wind.boot <-  bootstrap.t.CI.lme(sapMod.uni.wind, lin.comb.Ct=modmat.sap.wind, 
+                                            nboot=nsimwind, alpha=0.05, ncore=7)
+
+
+
+sapMod.bi.wind.boot <-  bootstrap.t.CI.lme(sapMod.bi.wind, lin.comb.Ct=modmat.sap.wind, 
+                                           nboot=nsimwind, alpha=0.05, ncore=7)
+
+
+## Quick plot of results
+plot_grid(effectplot.Kfunctionlme(sapMod.uni.wind.boot),
+          effectplot.Kfunctionlme(sapMod.bi.wind.boot), nrow=2)
+
+
+```
+
+
+### 2.5 Examining coefficients of models
 
 We can plot the coefficients from the models and their confidence intervals using functions defined in the convenience functions code side by side with.
 
@@ -322,7 +379,7 @@ a. there is more clustering among high HSD species
 b. None of the other predictors seem to explain much variation in clustering (CIs are very wide)
 
 
-### 2.5 Formal tests of Hypothesis 1
+### 2.6 Formal tests of Hypothesis 1
 
 We can use an Anova type analysis
 
@@ -342,50 +399,53 @@ anovaSaps1 <- sapply(c('huntpres', 'HSD'), function(term)
 ##interaction term
 anovaSaps2 <- 
     bootstrap.compare.lme(sapMod.uni, term="huntpres:HSD",
-                          dists=list(1:5, 1:10, 1:rmax, 5:10), nboot=19, ncore=7)
+                          dists=list(1:5, 1:10, 1:rmax, 5:10), nboot=99, ncore=7)
 
-anova.saps<- c(anovaSaps1, "huntpres:HSD" = list(anovaSaps2))
+anova.saps.uni<- c(anovaSaps1, "huntpres:HSD" = list(anovaSaps2))
 
 ```
 
 We can also run the analysis on a cluster and use the results. Here we use that approach.
 
 ```{r load_anova, eval=usecluster}
-load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim999.RData")
-load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim999.RData")
+if(!windsep){
+  ## if including wind dispersed species
+  load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim999.RData")
+  load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim999.RData")
+  
+  ## univariate
+  anova.saps.uni.1way <- lapply(anovaSaps1$uni$anovas, function(x) x$dtable)
+  names(anova.saps.uni.1way) <- sapply(anovaSaps1$uni$anovas, function(x) x[[1]]$term)
+  anova.saps.uni <- c(anova.saps.uni.1way, "huntpres:HSD" = list(anovaSaps2$uni$anovas[[1]]$dtable))
 
-load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
-load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
-
-## univariate
-anova.saps.uni.1way <- 
-  lapply(anovaSaps1$uni$anovas, function(x) x$dtable)
-names(anova.saps.uni.1way) <- sapply(anovaSaps1$uni$anovas, function(x) x[[1]]$term)
-anova.saps.uni.1way <-
-  lapply(anovaSaps_noabiotic1$uni$anovas, function(x) x$dtable)
-names(anova.saps.uni.1way) <- sapply(anovaSaps_noabiotic1$uni$anovas, function(x) x[[1]]$term)
-anova.saps.uni <- c(anova.saps.uni.1way, "huntpres:HSD" = list(anovaSaps2$uni$anovas[[1]]$dtable))
-
-anova.saps.uni <- c(anova.saps.uni.1way, "huntpres:HSD" = list(anovaSaps_noabiotic2$uni$anovas[[1]]$dtable))
-
-## bivariate
-anova.saps.bi.1way <- 
+  ## bivariate  
+  anova.saps.bi.1way <- 
   lapply(anovaSaps1$bi$anovas, function(x) x$dtable)
-names(anova.saps.bi.1way) <- sapply(anovaSaps1$bi$anovas, function(x) x[[1]]$term)
-anova.saps.bi.1way <- 
-  lapply(anovaSaps_noabiotic1$bi$anovas, function(x) x$dtable)
-names(anova.saps.bi.1way) <- sapply(anovaSaps_noabiotic1$bi$anovas, function(x) x[[1]]$term)
+  names(anova.saps.bi.1way) <- sapply(anovaSaps1$bi$anovas, function(x) x[[1]]$term)
+  anova.saps.bi <- c(anova.saps.bi.1way, "huntpres:HSD" = list(anovaSaps2$bi$anovas[[1]]$dtable))
 
-anova.saps.bi <- c(anova.saps.bi.1way, "huntpres:HSD" = list(anovaSaps2$bi$anovas[[1]]$dtable))
-anova.saps.bi <- c(anova.saps.bi.1way, "huntpres:HSD" = list(anovaSaps_noabiotic2$bi$anovas[[1]]$dtable))
+} else
+{
+  load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
+  load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
+  
+  anova.saps.uni.1way <-
+    lapply(anovaSaps_noabiotic1$uni$anovas, function(x) x$dtable)
+  names(anova.saps.uni.1way) <- sapply(anovaSaps_noabiotic1$uni$anovas, function(x) x[[1]]$term)
+  anova.saps.uni <- c(anova.saps.uni.1way, "huntpres:HSD" = list(anovaSaps_noabiotic2$uni$anovas[[1]]$dtable))
+  
+  ## bivariate
+  anova.saps.bi.1way <- 
+    lapply(anovaSaps_noabiotic1$bi$anovas, function(x) x$dtable)
+  names(anova.saps.bi.1way) <- sapply(anovaSaps_noabiotic1$bi$anovas, function(x) x[[1]]$term)
+  anova.saps.bi <- c(anova.saps.bi.1way, "huntpres:HSD" = list(anovaSaps_noabiotic2$bi$anovas[[1]]$dtable))
+}
 
 ```
 
 In either case, we then extract the relevant results 
 
 ```{r saplinganovaresults}
-
-
 ## univariate
 saplingAnovaTable.uni <- do.call(what='abind', args=list(lapply(anova.saps.uni, extractAnova), 
                                 along=2, 
@@ -403,7 +463,26 @@ saplingAnovaTable.bi <- do.call(what='abind', args=list(lapply(anova.saps.bi, ex
                                                NULL)))
 
 saplingAnovaTable.uni
-saplingAnovaTable.bi
+saplingAnovaTable.bi[,,1]
+```
+
+```{r H1windsp, eval=windsep}
+
+
+## extract the relevant data
+## Univariate
+anovaSapsWind.uni <- bootstrap.compare.lme(sapMod.uni.wind, term='huntpres',
+                          dists=list(1:rmax, 1:5, 6:10, 11:15), nboot=nsimwind, ncore=7)
+
+
+##Bivariate
+anovaSapsWind.bi <- 
+    bootstrap.compare.lme(sapMod.bi.wind, term="huntpres",
+                          dists=list(1:rmax, 1:5, 6:10, 11:15), nboot=nsimwind, ncore=7)
+
+extractAnova(anovaSapsWind.uni)
+extractAnova(anovaSapsWind.bi)
+
 ```
 
 
@@ -417,8 +496,6 @@ saplingAnovaTable.bi
 
 ```{r univariate_intMod}
 ## Full model with Juveniles and saplings (pair2)
-hyperdat.uni.sel.c2 <- subset(hyperdat.uni.sel.c, Abiotic!=1)
-
 intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,
                          fixed="stage*huntpres*HSD",
                          random="1|site/Spp",
@@ -575,7 +652,49 @@ ggplot(data=resids.bi, aes(x=distance, y=resid, colour=HSD, group=species)) +
 
 ```
 
-### 3.3 Interactive model confidence intervals
+
+### 3.3 Wind dispersed species
+This is only run if the flag for analysing wind dispersed species separately is on.
+
+```{r windintunimodel, eval=windsep}
+
+intMod.uni.wind <- lmeHyperframe(hyperdat.uni.wind, 0:rmax,
+                         fixed="stage*huntpres",
+                         random="1|site/Spp",
+                         computeK=FALSE)
+
+intMod.bi.wind <- lmeHyperframe(hyperdat.bi.wind, 0:rmax,
+                         fixed="stage*huntpres",
+                         random="1|site/Spp",
+                         computeK=FALSE)
+
+## First make the model matrix
+preddat.int.wind <-  expand.grid(stage=c('S', 'J'),
+                            huntpres=quantile(sitedat$huntpres, c(0.25, 0.75))
+                            )
+
+intform.wind <- update(formula(intMod.uni.wind[[1]]), NULL~.) ## extract formula (and remove lhs)
+modmat.int.wind <-  model.matrix(intform.wind, data=preddat.int.wind) ## make model matrix
+
+## Bootstrapping
+intMod.uni.wind.boot <-  bootstrap.t.CI.lme(intMod.uni.wind, lin.comb.Ct=modmat.int.wind, 
+                                            nboot=nsimwind, alpha=0.05, ncore=7)
+
+
+
+intMod.bi.wind.boot <-  bootstrap.t.CI.lme(intMod.bi.wind, lin.comb.Ct=modmat.int.wind, 
+                                           nboot=nsimwind, alpha=0.05, ncore=7)
+
+results.wind.int <- list(uni=list(model=intMod.uni.wind, boot=intMod.uni.wind.boot), 
+                     bi=list(model=intMod.bi.wind, boot=intMod.bi.wind.boot),
+                     nsim=nsimwind)
+## Quick plot of results
+plot_grid(effectplot.Kfunctionlme(intMod.uni.wind.boot),
+          effectplot.Kfunctionlme(intMod.bi.wind.boot), nrow=2)
+
+```
+
+### 3.4 Interactive model confidence intervals
 
 ```{r fullmodelboot, eval=!usecluster}
 ## construct data to make predictions for figures with
@@ -627,7 +746,7 @@ plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
 
 ```
 
-#### 3.3.1 Obtaining the results from the cluster
+#### 3.4.1 Obtaining the results from the cluster
 Once again, we can run the bootstrapping on a cluster and we can use those results here.
 
 ```{r clusterresultsJuvs, eval=usecluster}
@@ -641,7 +760,7 @@ preddat.int <-  results$preddat
 clusterNiter <- results$nsim
 ```
 
-#### 3.3.2 Plotting the coefficients
+#### 3.4.2 Plotting the coefficients
 
 ```{r fullmodelcoefplot}
 plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
@@ -649,9 +768,9 @@ plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
           labels=c('Univariate', 'Bivariate'))
 ```
 
-### 3.4 Formal tests of hypotheses 2 and 3
+### 3.5 Formal tests of hypotheses 2 and 3
 
-### 3.4.1 Univariate
+### 3.5.1 Univariate
 
 The formal anova tests of the full model are very time consuming. It is better to do this on a cluster. First we look at the univariate case
 
@@ -687,7 +806,7 @@ anova.int.uni.3way <-
 
 ```
 
-### 3.4.2 Bivariate
+### 3.5.2 Bivariate
 
 Then we look at the bivariate case
 ```{r intmodel_anova_bi, eval = !usecluster}
@@ -723,48 +842,91 @@ anova.int.uni.3way <-
 anova.int.uni.3way
 ```
 
-#### 3.4.3 Cluster results
+### 3.5.3 Cluster results
 We can load the results from the cluster where a larger number of iterations are possible. 
 
 ```{r intModelAnovaClus, eval=usecluster}
-load("../results/v7.0/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999.RData")
-load("../results/v7.0/Peru_v7_2_wayAnovaJuvs_rmax15_nsim999.RData")
-load("../results/v7.0/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999.RData")
+if(!windsep)
+{
+  load("../results/v7.0/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999.RData")
+  load("../results/v7.0/Peru_v7_2_wayAnovaJuvs_rmax15_nsim99.RData")
+  load("../results/v7.0/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999.RData")
+  
+  # univariate
+  anova.int.uni.1way <- 
+    lapply(anovaJuvs1$uni$anovas, function(x) x$dtable)
+  
+  names(anova.int.uni.1way) <- sapply(anovaJuvs1$uni$anovas, function(x) x[[1]]$term)
+  
+  anova.int.uni.2way <- 
+    lapply(anovaJuvs2$uni$anovas, function(x) x$dtable)
+  
+  names(anova.int.uni.2way) <- sapply(anovaJuvs2$uni$anovas, function(x) x[[1]]$term)
+  
+  anova.int.uni.3way <- list(anovaJuvs3$uni$anovas[[1]]$dtable)
+  anova.int.uni <- c(anova.int.uni.1way, anova.int.uni.2way, 
+                     "stage:HSD:hunt" = anova.int.uni.3way)
+  niterFind(anovaJuvs1$uni)
+  niterFind(anovaJuvs2$uni)
+  niterFind(anovaJuvs3$uni)
+  
+  ## bivariate
+  anova.int.bi.1way <- 
+    lapply(anovaJuvs1$bi, function(x) x$dtable)
+  names(anova.int.bi.1way) <- sapply(anovaJuvs1$bi, function(x) x[[1]]$term)
+  
+  
+  anova.int.bi.2way <- 
+    lapply(anovaJuvs2$bi, function(x) x$dtable)
+  names(anova.int.bi.2way) <- sapply(anovaJuvs2$bi, function(x) x[[1]]$term)
+  
+  anova.int.bi.3way <- list(anovaJuvs3$bi[[1]]$dtable)
+  
+  anova.int.bi <- c(anova.int.bi.1way, anova.int.bi.2way, 
+                    "stage:HSD:hunt" =anova.int.bi.3way)
+  
+} else
+{
+  load("../results/v7.0/Peru_v7_1_wayAnovaJuvs_rmax15_nsim99_NoAbiotic.RData")
+  load("../results/v7.0/Peru_v7_2_wayAnovaJuvs_rmax15_nsim99_NoAbiotic.RData")
+  load("../results/v7.0/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999_NoAbiotic.RData")
+  
+    # univariate
+  anova.int.uni.1way <- 
+    lapply(anovaJuvs_noabiotic1$uni$anovas, function(x) x$dtable)
+  
+  names(anova.int.uni.1way) <- sapply(anovaJuvs_noabiotic1$uni$anovas, function(x) x[[1]]$term)
+  
+  anova.int.uni.2way <- 
+    lapply(anovaJuvs_noabiotic2$uni$anovas, function(x) x$dtable)
+  
+  names(anova.int.uni.2way) <- sapply(anovaJuvs_noabiotic2$uni$anovas, function(x) x[[1]]$term)
+  
+  anova.int.uni.3way <- list(anovaJuvs_noabiotic3$uni$anovas[[1]]$dtable)
+  anova.int.uni <- c(anova.int.uni.1way, anova.int.uni.2way, 
+                     "stage:HSD:hunt" = anova.int.uni.3way)
+  niterFind(anovaJuvs_noabiotic1$uni)
+  niterFind(anovaJuvs_noabiotic2$uni)
+  niterFind(anovaJuvs_noabiotic3$uni)
+  
+  ## bivariate
+  anova.int.bi.1way <- 
+    lapply(anovaJuvs_noabiotic1$bi, function(x) x$dtable)
+  names(anova.int.bi.1way) <- sapply(anovaJuvs_noabiotic1$bi, function(x) x[[1]]$term)
+  
+  
+  anova.int.bi.2way <- 
+    lapply(anovaJuvs_noabiotic2$bi, function(x) x$dtable)
+  names(anova.int.bi.2way) <- sapply(anovaJuvs_noabiotic2$bi, function(x) x[[1]]$term)
+  
+  anova.int.bi.3way <- list(anovaJuvs_noabiotic3$bi[[1]]$dtable)
+  
+  anova.int.bi <- c(anova.int.bi.1way, anova.int.bi.2way, 
+                    "stage:HSD:hunt" =anova.int.bi.3way)
 
-# univariate
-anova.int.uni.1way <- 
-  lapply(anovaJuvs1$uni$anovas, function(x) x$dtable)
-
-names(anova.int.uni.1way) <- sapply(anovaJuvs1$uni$anovas, function(x) x[[1]]$term)
-
-anova.int.uni.2way <- 
-  lapply(anovaJuvs2$uni$anovas, function(x) x$dtable)
-
-names(anova.int.uni.2way) <- sapply(anovaJuvs2$uni$anovas, function(x) x[[1]]$term)
-
-anova.int.uni.3way <- list(anovaJuvs3$uni$anovas[[1]]$dtable)
-anova.int.uni <- c(anova.int.uni.1way, anova.int.uni.2way, 
-                   "stage:HSD:hunt" = anova.int.uni.3way)
-niterFind(anovaJuvs1$uni)
-niterFind(anovaJuvs2$uni)
-niterFind(anovaJuvs3$uni)
+}
 
 
-
-## bivariate
-anova.int.bi.1way <- 
-  lapply(anovaJuvs1$bi, function(x) x$dtable)
-names(anova.int.bi.1way) <- sapply(anovaJuvs1$bi, function(x) x[[1]]$term)
-
-
-anova.int.bi.2way <- 
-  lapply(anovaJuvs2$bi, function(x) x$dtable)
-names(anova.int.bi.2way) <- sapply(anovaJuvs2$bi, function(x) x[[1]]$term)
-
-anova.int.bi.3way <- list(anovaJuvs3$bi[[1]]$dtable)
-
-anova.int.bi <- c(anova.int.bi.1way, anova.int.bi.2way, 
-                  "stage:HSD:hunt" =anova.int.bi.3way)
 ```
 
 Now we can put all the results together in a table.
@@ -783,12 +945,71 @@ intAnovaTable.bi <- do.call(what='abind', args=list(lapply(anova.int.bi, extract
                                                paste(rep(names(anova.int.bi), each=2), 
                                                      rep(c('D', 'P'), 3), sep='_'),
                                                NULL)))
-
-intAnovaTable.uni
-intAnovaTable.bi
+aperm(intAnovaTable.uni, c(2, 1, 3))
+aperm(intAnovaTable.bi, c(2, 1,3))
 
 ```
 
+
+```{r H23windsp, eval=windsep}
+
+intMod.uni.wind_1 <- lmeHyperframe(hyperdat.uni.wind, 0:rmax,
+                         fixed="stage + huntpres",
+                         random="1|site/Spp",
+                         computeK=FALSE)
+
+intMod.bi.wind_1 <- lmeHyperframe(hyperdat.bi.wind, 0:rmax,
+                         fixed="stage + huntpres",
+                         random="1|site/Spp",
+                         computeK=FALSE)
+## Univariate
+anovaIntWind.uni_1way <- lapply(c('stage', 'huntpres'), function(term) 
+{
+  bootstrap.compare.lme(intMod.uni.wind_1, term=term,
+                        dists=list(1:rmax, 1:5, 6:10, 11:15), nboot=nsimwind, ncore=7)
+})
+
+names(anovaIntWind.uni_1way) <- c('stage', 'huntpres')
+anovaIntWind.uni_2way <-bootstrap.compare.lme(intMod.uni.wind, term="stage:huntpres", 
+                                              dists=list(1:rmax, 1:5, 6:10, 11:15), 
+                                              nboot=nsimwind, ncore=7)
+
+anova.int.wind.uni <- c(anovaIntWind.uni_1way, 
+                    "stage:hunt"=list(anovaIntWind.uni_2way))
+
+##Bivariate
+anovaIntWind.bi_1way <- lapply(c('stage', 'huntpres'), function(term) 
+{
+  bootstrap.compare.lme(intMod.bi.wind_1, term=term,
+                        dists=list(1:rmax, 1:5, 6:10, 11:15), nboot=nsimwind, ncore=7)
+})
+names(anovaIntWind.bi_1way) <- c('stage', 'huntpres')
+
+anovaIntWind.bi_2way <-bootstrap.compare.lme(intMod.bi.wind, term="stage:huntpres", 
+                                              dists=list(1:rmax, 1:5, 6:10, 11:15), 
+                                              nboot=nsimwind, ncore=7)
+
+anova.int.wind.bi <- c(anoexitg
+                       exvaIntWind.bi_1way, 
+                    "stage:hunt" =list(anovaIntWind.bi_2way))
+
+intAnovaTable.uni.wind <- do.call(what='abind', args=list(lapply(anova.int.wind.uni, extractAnova), 
+                                along=2, 
+                                new.names=list(NULL,
+                                               paste(rep(names(anova.int.wind.uni), each=2), 
+                                                     rep(c('D', 'P'), 3), sep='_'),
+                                               NULL)))
+
+intAnovaTable.bi.wind <- do.call(what='abind', args=list(lapply(anova.int.wind.bi, extractAnova), 
+                                along=2, 
+                                new.names=list(NULL,
+                                               paste(rep(names(anova.int.wind.bi), each=2), 
+                                                     rep(c('D', 'P'), 3), sep='_'),
+                                               NULL)))
+
+intAnovaTable.uni.wind
+intAnovaTable.bi.wind
+```
 
 ```{r fullmodelplotting}
 ################################################################################

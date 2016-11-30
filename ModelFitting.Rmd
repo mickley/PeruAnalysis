@@ -156,7 +156,6 @@ sapMod.uni <- lmeHyperframe(hyperdat.uni.sap, 0:rmax,
                          fixed="huntpres*HSD",
                          random="1|site",
                          computeK=FALSE)
-
 ```
 
 #### 2.2.2 Model diagnostics
@@ -217,7 +216,7 @@ These species are generally relatively rare at the sites where they are outliers
 
 #### 2.2.3 Calculate confidence intervals
 
-```{r unimodel_confints, eval=!usecluster}
+```{r unimodel_confints}
 ## First make the model matrix
 preddat.sap <-  expand.grid(stage=c('S'),
                             huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
@@ -230,8 +229,6 @@ modmat.sap <-  model.matrix(sapform, data=preddat.sap) ## make model matrix
 sapMod.uni.boot <-  bootstrap.t.CI.lme(sapMod.uni, lin.comb.Ct=modmat.sap, nboot=nsim,
                                        alpha=0.05, ncore=7)
 
-## Quick plot of results
-effectplot.Kfunctionlme(sapMod.uni.boot)
 ```
 
 
@@ -304,16 +301,14 @@ ggplot(data=resids.bi, aes(x=distance, y=resid, colour=HSD, group=species)) +
 
 #### 2.3.3 Estimating the confidence intervals
 
-```{r bimodel_confints, eval=!usecluster}
+```{r bimodel_confints}
 
 ## Can use the model matrix from the univariate analysis
 ## Bootstrapping
 sapMod.bi.boot <-  bootstrap.t.CI.lme(sapMod.bi, lin.comb.Ct=modmat.sap, nboot=nsim,
                                        alpha=0.05, ncore=7)
 
-effectplot.Kfunctionlme(sapMod.bi.boot)
 ```
-
 
 
 
@@ -321,7 +316,6 @@ effectplot.Kfunctionlme(sapMod.bi.boot)
 This is only run if the flag for analysing wind dispersed species separately is on.
 
 ```{r windunimodel_confints, eval=windsep}
-
 sapMod.uni.wind <- lmeHyperframe(hyperdat.uni.sap.wind, 0:rmax,
                          fixed="huntpres",
                          random="1|site",
@@ -352,8 +346,8 @@ sapMod.bi.wind.boot <-  bootstrap.t.CI.lme(sapMod.bi.wind, lin.comb.Ct=modmat.sa
 
 ## Quick plot of results
 plot_grid(effectplot.Kfunctionlme(sapMod.uni.wind.boot),
-          effectplot.Kfunctionlme(sapMod.bi.wind.boot), nrow=2)
-
+          effectplot.Kfunctionlme(sapMod.bi.wind.boot), nrow=2, 
+          labels=c('Univariate', 'Bivariate'))
 
 ```
 
@@ -371,8 +365,7 @@ plot_grid(effectplot.Kfunctionlme(sapMod.uni.boot),
 These plots suggest that
 1. in the univariate analysis
 a. within cohort clustering increases with disperser sensitivity
-b. clustering increases slightly with hunting pressure in insensitive disperser species
-c. Clustering increases slightly faster among high HSD species.
+b. Clustering increases slightly faster with HSD in hunted forests
 
 2. In the bivariate analysis 
 a. there is more clustering among high HSD species
@@ -426,8 +419,8 @@ if(!windsep){
 
 } else
 {
-  load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
-  load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
+  load("../results/v7.0/uchc/Peru_v7_1_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
+  load("../results/v7.0/uchc/Peru_v7_2_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
   
   anova.saps.uni.1way <-
     lapply(anovaSaps_noabiotic1$uni$anovas, function(x) x$dtable)
@@ -462,18 +455,17 @@ saplingAnovaTable.bi <- do.call(what='abind', args=list(lapply(anova.saps.bi, ex
                                                      rep(c('D', 'P'), 3), sep='_'),
                                                NULL)))
 
-saplingAnovaTable.uni
+saplingAnovaTable.uni[,,1]
 saplingAnovaTable.bi[,,1]
+
 ```
 
 ```{r H1windsp, eval=windsep}
-
 
 ## extract the relevant data
 ## Univariate
 anovaSapsWind.uni <- bootstrap.compare.lme(sapMod.uni.wind, term='huntpres',
                           dists=list(1:rmax, 1:5, 6:10, 11:15), nboot=nsimwind, ncore=7)
-
 
 ##Bivariate
 anovaSapsWind.bi <- 
@@ -482,7 +474,6 @@ anovaSapsWind.bi <-
 
 extractAnova(anovaSapsWind.uni)
 extractAnova(anovaSapsWind.bi)
-
 ```
 
 
@@ -657,7 +648,6 @@ ggplot(data=resids.bi, aes(x=distance, y=resid, colour=HSD, group=species)) +
 This is only run if the flag for analysing wind dispersed species separately is on.
 
 ```{r windintunimodel, eval=windsep}
-
 intMod.uni.wind <- lmeHyperframe(hyperdat.uni.wind, 0:rmax,
                          fixed="stage*huntpres",
                          random="1|site/Spp",
@@ -721,37 +711,15 @@ plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
 ```
 
 
-```{r fullmodelboot, eval=!usecluster}
-## construct data to make predictions for figures with
-preddat.int <-  expand.grid(stage=c('S', 'J'), 
-                            huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
-                            disp = levels(hyperdat.uni.sel.c$disp))
-
-## RHS of model formula
-allform <- update(formula(intMod.unidisp[[1]]), NULL~.)
-## Make model matrix
-modmat.int <-  model.matrix(allform, data=preddat.int)
-
-## Bootstrapping
-## Univariate
-system.time(intMod.uni.boot <-  bootstrap.t.CI.lme(intMod.unidisp, lin.comb.Ct=modmat.int, nboot=nsim,
-                                       alpha=0.05, ncore=7))
-
-## bivariate
-system.time(intMod.bi.boot <-  bootstrap.t.CI.lme(intMod.bi, lin.comb.Ct=modmat.int, nboot=nsim,
-                                                  alpha=0.05, ncore=7))
-
-plot_grid(effectplot.Kfunctionlme(intMod.uni.boot),
-          effectplot.Kfunctionlme(intMod.bi.boot), labels=c('Uni', 'bi'))
-
-```
-
 #### 3.4.1 Obtaining the results from the cluster
 Once again, we can run the bootstrapping on a cluster and we can use those results here.
 
 ```{r clusterresultsJuvs, eval=usecluster}
 ## Alternatively, load results from cluster
-load("../results/v7.0/PeruDispersal_v7_rmax15_nsim999.RData")
+if(windsep)
+  load("../results/v7.0/uchc/PeruDispersal_v7_rmax15_NoAbiotic.RData") else
+    load("../results/v7.0/PeruDispersal_v7_rmax15_nsim999.RData")
+
 results$nsim
 intMod.uni.boot <- results$uni$boot
 intMod.bi.boot <- results$bi$boot
@@ -839,7 +807,7 @@ anova.int.bi.2way <- sapply(c('stage:huntpres', 'stage:HSD', 'huntpres:HSD'), fu
 anova.int.uni.3way <-
     bootstrap.compare.lme(intMod.uni, term="stage:huntpres:HSD",
                           dists=list(1:rmax, 1:5, 1:10, 5:10), nboot=nsim, ncore=7)
-anova.int.uni.3way
+
 ```
 
 ### 3.5.3 Cluster results
@@ -849,7 +817,7 @@ We can load the results from the cluster where a larger number of iterations are
 if(!windsep)
 {
   load("../results/v7.0/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999.RData")
-  load("../results/v7.0/Peru_v7_2_wayAnovaJuvs_rmax15_nsim99.RData")
+  load("../results/v7.0/Peru_v7_2_wayAnovaJuvs_rmax15_nsim999.RData")
   load("../results/v7.0/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999.RData")
   
   # univariate
@@ -887,9 +855,9 @@ if(!windsep)
   
 } else
 {
-  load("../results/v7.0/Peru_v7_1_wayAnovaJuvs_rmax15_nsim99_NoAbiotic.RData")
-  load("../results/v7.0/Peru_v7_2_wayAnovaJuvs_rmax15_nsim99_NoAbiotic.RData")
-  load("../results/v7.0/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999_NoAbiotic.RData")
+  load("../results/v7.0/uchc/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999_NoAbiotic.RData")
+  load("../results/v7.0/uchc/Peru_v7_2_wayAnovaJuvs_rmax15_nsim999_NoAbiotic.RData")
+  load("../results/v7.0/uchc/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999_NoAbiotic.RData")
   
     # univariate
   anova.int.uni.1way <- 
@@ -945,8 +913,8 @@ intAnovaTable.bi <- do.call(what='abind', args=list(lapply(anova.int.bi, extract
                                                paste(rep(names(anova.int.bi), each=2), 
                                                      rep(c('D', 'P'), 3), sep='_'),
                                                NULL)))
-aperm(intAnovaTable.uni, c(2, 1, 3))
-aperm(intAnovaTable.bi, c(2, 1,3))
+aperm(intAnovaTable.uni, c(2, 1, 3))[,,1]
+aperm(intAnovaTable.bi, c(2, 1,3))[,,1]
 
 ```
 
@@ -989,9 +957,8 @@ anovaIntWind.bi_2way <-bootstrap.compare.lme(intMod.bi.wind, term="stage:huntpre
                                               dists=list(1:rmax, 1:5, 6:10, 11:15), 
                                               nboot=nsimwind, ncore=7)
 
-anova.int.wind.bi <- c(anoexitg
-                       exvaIntWind.bi_1way, 
-                    "stage:hunt" =list(anovaIntWind.bi_2way))
+anova.int.wind.bi <- c(anovaIntWind.bi_1way, 
+                        "stage:hunt" =list(anovaIntWind.bi_2way))
 
 intAnovaTable.uni.wind <- do.call(what='abind', args=list(lapply(anova.int.wind.uni, extractAnova), 
                                 along=2, 

@@ -11,6 +11,7 @@ rseed <- 1234 ## set the seed for reproducibility
 ##intlevel <- 2; ncore <- 3; nboot <- 5
 
 intlevel <- as.numeric(Sys.getenv('arrayid')) ## interaction level
+abiotic <- as.numeric(Sys.getenv('abiotic')) ## include abiotic species?
 ncore <-  as.numeric(Sys.getenv('nclust')) ## number of cpus
 nboot <- as.numeric(Sys.getenv('nsim')) ## number of simulations
 rmax <- as.numeric(Sys.getenv('rmax'))
@@ -30,9 +31,10 @@ hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1)
 hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Unkwn !=1) 
 
 ## alternative version - removing abiotic dispersed species
-hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c,  Abiotic !=1) 
-hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c, Abiotic !=1)
-
+if(abiotic==0){
+  hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c,  Abiotic !=1) 
+  hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c, Abiotic !=1)
+}
 
 ## select sapling data
 hyperdat.uni.saps.c <- subset(hyperdat.uni.sel.c, stage == 'S')
@@ -94,4 +96,4 @@ system(paste('mkdir -p', dir.name))
 
 save(list=objname, file=paste0(dir.name, '/Peru_v7_',
                      intlevel, '_wayAnovaSaps',
-                     '_rmax', rmax, '_nsim', nboot, "_NoAbiotic", '.RData'))
+                     '_rmax', rmax, '_nsim', nboot, "_IncAbiotic", abiotic, '.RData'))

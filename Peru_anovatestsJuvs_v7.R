@@ -12,6 +12,7 @@ rseed <- 1234 ## set the seed for reproducibility
 
 intlevel <- as.numeric(Sys.getenv('arrayid')) ## interaction level
 rmax <- as.numeric(Sys.getenv('rmax')) ## maximum distance
+abiotic <- as.numeric(Sys.getenv('abiotic')) ## include abiotic species?
 ncore <-  as.numeric(Sys.getenv('nclust')) ## number of cpus
 nboot <- as.numeric(Sys.getenv('nsim')) ## number of simulations
 
@@ -30,9 +31,10 @@ hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Unkwn !=1)
 hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1)
 
 ## alternative version - removing abiotic dispersed species
-hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c,  Abiotic !=1) 
-hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c, Abiotic !=1)
-
+if(abiotic==0){
+  hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c,  Abiotic !=1) 
+  hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c, Abiotic !=1)
+}
 
 ####################################################################
 ## Fitting the models
@@ -89,4 +91,4 @@ system(paste('mkdir -p', dir.name))
 
 save(list=objname, file=paste0(dir.name, '/', 'Peru_v7_',
                      intlevel, '_wayAnovaJuvs', '_rmax', rmax,
-                     '_nsim', nboot, '_NoAbiotic', '.RData'))
+                     '_nsim', nboot, '_IncAbiotic', abiotic, '.RData'))

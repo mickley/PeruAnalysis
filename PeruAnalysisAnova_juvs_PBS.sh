@@ -46,8 +46,11 @@ cd $PBS_O_WORKDIR
 
 nsim=${nsim:-99}
 rmax=${rmax:-15}
+abiotic=${rmax:-1}
 
 echo 'number of cpus requested = ' $nclust
+echo 'rmax = ' $rmax
+echo 'abiotic = ' $abiotic
 
 # execute the R commands in the R script R_script
 ~/programs/R/R-3.2.3/bin/R CMD BATCH ~/Peru/PeruAnalysis/Peru_anovatestsJuvs_v7.R ~/Peru/progreports/peru_anovaJuvs_v7\_niter$nsim\_rmax$rmax\_$arrayid.Rout

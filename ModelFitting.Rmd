@@ -118,7 +118,7 @@ if(windsep){
 Set number of iterations for bootstrapping - keep small for trials (takes a long time). The code was run on a HPC for paper
 ```{r setpars}
 nsim <- 19
-nsimwind <- 999
+nsimwind <- 19
 rmax ## double check  value set in previous code
 ```
 
@@ -356,7 +356,7 @@ plot_grid(effectplot.Kfunctionlme(sapMod.uni.wind.boot),
 
 We can plot the coefficients from the models and their confidence intervals using functions defined in the convenience functions code side by side with.
 
-```{r exploring_sapling_model_results, eval =!usecluster}
+```{r exploring_sapling_model_results}
 plot_grid(effectplot.Kfunctionlme(sapMod.uni.boot),
           effectplot.Kfunctionlme(sapMod.bi.boot), 
           labels=c('Univariate', 'Bivariate'))
@@ -403,9 +403,10 @@ We can also run the analysis on a cluster and use the results. Here we use that 
 ```{r load_anova, eval=usecluster}
 if(!windsep){
   ## if including wind dispersed species
-  load("../results/v7.0/Peru_v7_1_wayAnovaSaps_rmax15_nsim999.RData")
-  load("../results/v7.0/Peru_v7_2_wayAnovaSaps_rmax15_nsim999.RData")
-  
+  load("../results/v7.0/uchc/Peru_v7_1_wayAnovaSaps_rmax15_nsim999_IncAbiotic15.RData")
+  load("../results/v7.0/uchc/Peru_v7_2_wayAnovaSaps_rmax15_nsim999_IncAbiotic15.RData")
+  anovaSaps1 <- anovaSaps_noabiotic1
+  anovaSaps2 <- anovaSaps_noabiotic2
   ## univariate
   anova.saps.uni.1way <- lapply(anovaSaps1$uni$anovas, function(x) x$dtable)
   names(anova.saps.uni.1way) <- sapply(anovaSaps1$uni$anovas, function(x) x[[1]]$term)
@@ -816,9 +817,14 @@ We can load the results from the cluster where a larger number of iterations are
 ```{r intModelAnovaClus, eval=usecluster}
 if(!windsep)
 {
-  load("../results/v7.0/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999.RData")
-  load("../results/v7.0/Peru_v7_2_wayAnovaJuvs_rmax15_nsim999.RData")
-  load("../results/v7.0/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999.RData")
+  load("../results/v7.0/uchc/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999_IncAbiotic1.RData")
+  load("../results/v7.0/uchc/Peru_v7_2_wayAnovaJuvs_rmax15_nsim999_IncAbiotic1.RData")
+  load("../results/v7.0/uchc/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999_IncAbiotic1.RData")
+  
+  anovaJuvs1 <- anovaJuvs_noabiotic1
+  anovaJuvs2 <- anovaJuvs_noabiotic2
+  anovaJuvs3 <- anovaJuvs_noabiotic3
+  rm(anovaJuvs_noabiotic1, anovaJuvs_noabiotic2, anovaJuvs_noabiotic3)
   
   # univariate
   anova.int.uni.1way <- 

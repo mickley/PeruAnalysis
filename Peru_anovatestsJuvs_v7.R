@@ -18,7 +18,8 @@ nboot <- as.numeric(Sys.getenv('nsim')) ## number of simulations
 
 print(paste("interaction =", intlevel,
             "max distance =", rmax,
-            "No. simulations =", nboot, 
+            "No. simulations =", nboot,
+            "Abiotic = ", abiotic,
             "No. cpus=", ncore))
 
 type <- "sqrtNxNyweights"

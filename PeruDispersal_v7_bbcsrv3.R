@@ -16,9 +16,12 @@ rmax <- as.numeric(Sys.getenv('rmax')) ## maximum distance
 # noqw <- as.numeric(Sys.getenv('noqw')) ## exclude Quarraribea laevis?
 ncore <- as.numeric(Sys.getenv("nclust"))
 nboot <- as.numeric(Sys.getenv('nsim')) ## number of simulations
+abiotic <- as.numeric(Sys.getenv('abiotic')) ## include abiotic species?
 
-print(paste("No. cpus=", ncore, 
-            "No. simulations =", nboot))
+print(paste("No. cpus = ", ncore, 
+            "No. simulations = ", nboot,
+            "max distance = ", rmax,
+            "abiotic = ", abiotic))
 
 
 ################################################################################
@@ -36,9 +39,12 @@ hyperdat.bi.sel.c <- subset(hyperdat.bi.sel,  Unkwn !=1)
  ## univariate
 hyperdat.uni.sel.c <- subset(hyperdat.uni.sel,  Unkwn !=1)
 
-hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c,  Abiotic !=1)
-## univariate
-hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c,  Abiotic !=1)
+## alternative version - removing abiotic dispersed species
+if(abiotic==0){
+  hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c,  Abiotic !=1) 
+  hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c, Abiotic !=1)
+}
+
 
 ## Fit models
 ## Bivariate

@@ -42,8 +42,9 @@ export nclust=$NSLOTS
 ## qsub -v nsim=999,rmax=10 peruDispersal.sh
 nsim=${nsim:-99}
 rmax=${rmax:-15}
+abiotic=${abiotic:-1}
 
 echo 'number of cpus requested = ' $nclust
 
-R CMD BATCH ~/Peru/July2016/PeruAnalysis/PeruDispersal_v7_bbcsrv3.R ~/Peru/July2016/progreports/perudisp\_v7\_niter$nsim\_rmax$rmax\.Rout
+R CMD BATCH ~/Peru/July2016/PeruAnalysis/PeruDispersal_v7_bbcsrv3.R ~/Peru/July2016/progreports/perudisp\_v7\_niter$nsim\_rmax$rmax\_abiotic$abiotic.Rout
 

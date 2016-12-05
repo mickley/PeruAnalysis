@@ -40,8 +40,9 @@ export arrayid=$SGE_TASK_ID
 
 nsim=${nsim:-99}
 rmax=${rmax:-15}
+abiotic=${abiotic:-1}
 
 echo 'number of cpus requested = ' $nclust
 
 # execute the R commands in the R script R_script
-R CMD BATCH ~/Peru/July2016/PeruAnalysis/Peru_anovatestsJuvs_v7.R ~/Peru/July2016/progreports/peru_anovaJuvs_v7\_niter$nsim\_rmax$rmax\_$arrayid.Rout
+R CMD BATCH ~/Peru/July2016/PeruAnalysis/Peru_anovatestsJuvs_v7.R ~/Peru/July2016/progreports/peru_anovaJuvs_v7\_niter$nsim\_rmax$rmax\_$abiotic\_$arrayid.Rout

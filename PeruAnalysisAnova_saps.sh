@@ -50,4 +50,4 @@ abiotic=${abiotic:-1}
 echo 'number of cpus requested = ' $nclust
 
 # execute the R commands in the R script R_script
-R CMD BATCH ~/Peru/July2016/PeruAnalysis/Peru_anovatestsSaps_v7.R ~/Peru/July2016/progreports/peru_anovaSaps\_v7\_niter$nsim\_rmax$rmax\_$abiotic\_$arrayid.Rout
+R CMD BATCH ~/Peru/July2016/PeruAnalysis/Peru_anovatestsSaps_v7.R ~/Peru/July2016/progreports/peru_anovaSaps\_v7\_niter$nsim\_rmax$rmax\_abiotic$abiotic\_$arrayid.Rout

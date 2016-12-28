@@ -77,7 +77,6 @@ extractAnova <-  function(Aobj){
 }
 ## Function that extracts the number of iterations.
 niterFind <- function(x) length(x$anovas[[1]]$dtable$D[[1]]$D.boot)
-
 ```
 
 
@@ -117,8 +116,8 @@ if(windsep){
 
 Set number of iterations for bootstrapping - keep small for trials (takes a long time). The code was run on a HPC for paper
 ```{r setpars}
-nsim <- 19
-nsimwind <- 19
+nsim <- 999
+nsimwind <- 999
 rmax ## double check  value set in previous code
 ```
 
@@ -211,8 +210,8 @@ Looks pretty good overall. There are some biggish outliers, especially *Matisia 
 subset(hyperdat.uni.sap, sp.id %in% c(764, 446, 562, 411), 
        select=c('sp.id', 'Spp', 'N1', 'pname'))
 ```
-These species are generally relatively rare at the sites where they are outliers (see the N1 column), so probably have little effect on the analyisis. 
 
+These species are generally relatively rare at the sites where they are outliers (see the N1 column), so probably have little effect on the analyisis. 
 
 #### 2.2.3 Calculate confidence intervals
 
@@ -403,7 +402,7 @@ We can also run the analysis on a cluster and use the results. Here we use that 
 ```{r load_anova, eval=usecluster}
 if(!windsep){
   ## if including wind dispersed species
-  load("../results/v7.0/uchc/Peru_v7_1_wayAnovaSaps_rmax15_nsim999_IncAbiotic15.RData")
+  load("../results/v7.0/uchc/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999_IncAbiotic1.RData")
   load("../results/v7.0/uchc/Peru_v7_2_wayAnovaSaps_rmax15_nsim999_IncAbiotic15.RData")
   anovaSaps1 <- anovaSaps_noabiotic1
   anovaSaps2 <- anovaSaps_noabiotic2
@@ -420,8 +419,8 @@ if(!windsep){
 
 } else
 {
-  load("../results/v7.0/uchc/Peru_v7_1_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
-  load("../results/v7.0/uchc/Peru_v7_2_wayAnovaSaps_rmax15_nsim999_NoAbiotic.RData")
+  load("../results/v7.0/bbcsrv3/Peru_v7_1_wayAnovaSaps_rmax15_nsim999_IncAbiotic0.RData")
+  load("../results/v7.0/bbcsrv3/Peru_v7_2_wayAnovaSaps_rmax15_nsim999_IncAbiotic0.RData")
   
   anova.saps.uni.1way <-
     lapply(anovaSaps_noabiotic1$uni$anovas, function(x) x$dtable)
@@ -458,7 +457,6 @@ saplingAnovaTable.bi <- do.call(what='abind', args=list(lapply(anova.saps.bi, ex
 
 saplingAnovaTable.uni[,,1]
 saplingAnovaTable.bi[,,1]
-
 ```
 
 ```{r H1windsp, eval=windsep}
@@ -580,10 +578,13 @@ siteranefs %>% ggplot(aes(sample=value)) + geom_qq() +
 
 ```{r bivariate_intModel}
 ## Full models with Juveniles and saplings (pair2)
+
+
 intMod.bi <- lmeHyperframe(hyperdat.bi.sel.c, 0:rmax,
                          fixed="stage*huntpres*HSD",
                          random="1|site/Spp",
                          computeK=FALSE)
+intMod.bi
 ```
 
 #### 3.2.2 Model diagnostics
@@ -596,7 +597,7 @@ siteranefs <- tbl_df(extractModRanefs(intMod.bi))
 
 siteranefs$hunted <- sitedat$hunted[match(siteranefs$id, sitedat$site)]
 siteranefs$huntpres <- sitedat$huntpres[match(siteranefs$id, sitedat$site)]
-
+siteranefs <- na.omit(siteranefs)
 siteranefs %>% ggplot(aes(x=huntpres, y=value)) + 
   geom_smooth(method='gam', method.args=list(k=5)) + geom_point(aes(col=id)) +
     facet_wrap(~distance, scale='free') + theme_bw()
@@ -620,9 +621,10 @@ spranefs %>% ggplot(aes(sample=value)) + geom_qq() +
 
 resids.bi <- plotModResids(intMod.bi)
 ## add data on species names
-resids.bi$species <- rep(hyperdat.bi.sel.c$Spp, 15)
-resids.bi$sp.id <- rep(hyperdat.bi.sel.c$sp.id, 15)
-resids.bi$N <- rep(hyperdat.bi.sel.c$N1, 15)
+
+resids.bi$species <- rep(hyperdat.bi.sel.c$Spp, length(unique(resids.bi$distance)))
+resids.bi$sp.id <- rep(hyperdat.bi.sel.c$sp.id, length(unique(resids.bi$distance)))
+resids.bi$N <- rep(hyperdat.bi.sel.c$N1, length(unique(resids.bi$distance)))
 
 
 resids.bi %>% ggplot(aes(x=huntpres, y=resid, colour=HSD)) +
@@ -718,7 +720,7 @@ Once again, we can run the bootstrapping on a cluster and we can use those resul
 ```{r clusterresultsJuvs, eval=usecluster}
 ## Alternatively, load results from cluster
 if(windsep)
-  load("../results/v7.0/uchc/PeruDispersal_v7_rmax15_NoAbiotic.RData") else
+  load("../results/v7.0/bbcsrv3/PeruDispersal_v7_rmax15_NoAbiotic.RData") else
     load("../results/v7.0/PeruDispersal_v7_rmax15_nsim999.RData")
 
 results$nsim
@@ -817,9 +819,9 @@ We can load the results from the cluster where a larger number of iterations are
 ```{r intModelAnovaClus, eval=usecluster}
 if(!windsep)
 {
-  load("../results/v7.0/uchc/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999_IncAbiotic1.RData")
-  load("../results/v7.0/uchc/Peru_v7_2_wayAnovaJuvs_rmax15_nsim999_IncAbiotic1.RData")
-  load("../results/v7.0/uchc/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999_IncAbiotic1.RData")
+  load("../results/v7.0/bbcsrv3/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999_IncAbiotic1.RData")
+  load("../results/v7.0/bbcsrv3/Peru_v7_2_wayAnovaJuvs_rmax15_nsim999_IncAbiotic1.RData")
+  load("../results/v7.0/bbcsrv3/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999_IncAbiotic1.RData")
   
   anovaJuvs1 <- anovaJuvs_noabiotic1
   anovaJuvs2 <- anovaJuvs_noabiotic2
@@ -861,9 +863,9 @@ if(!windsep)
   
 } else
 {
-  load("../results/v7.0/uchc/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999_NoAbiotic.RData")
-  load("../results/v7.0/uchc/Peru_v7_2_wayAnovaJuvs_rmax15_nsim999_NoAbiotic.RData")
-  load("../results/v7.0/uchc/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999_NoAbiotic.RData")
+  load("../results/v7.0/bbcsrv3/Peru_v7_1_wayAnovaJuvs_rmax15_nsim999_IncAbiotic0.RData")
+  load("../results/v7.0/bbcsrv3/Peru_v7_2_wayAnovaJuvs_rmax15_nsim999_IncAbiotic0.RData")
+  load("../results/v7.0/bbcsrv3/Peru_v7_3_wayAnovaJuvs_rmax15_nsim999_IncAbiotic0.RData")
   
     # univariate
   anova.int.uni.1way <- 
@@ -919,8 +921,9 @@ intAnovaTable.bi <- do.call(what='abind', args=list(lapply(anova.int.bi, extract
                                                paste(rep(names(anova.int.bi), each=2), 
                                                      rep(c('D', 'P'), 3), sep='_'),
                                                NULL)))
-aperm(intAnovaTable.uni, c(2, 1, 3))[,,1]
-aperm(intAnovaTable.bi, c(2, 1,3))[,,1]
+
+intAnovaTable.uni[,,1]
+intAnovaTable.bi[,,1]
 
 ```
 
@@ -1130,9 +1133,11 @@ disp.list <- merge(disp.list.uni, disp.list.bi, by="Spp", all=T, suffix=c('uni',
 ## calculate number of species in each dispersal group
 apply(disp.list[, -1], 2, function(x) sum(x>0, na.rm=T)) ## number dependent to some degree
 apply(disp.list[, -1], 2, function(x) sum(x==1, na.rm=T)) ## number totally dependent
-apply(disp.list[, -1], 2, function(x) sum(!is.na(x))) ## Total number of species
-35/224; 29/176
-131/224; 110/176 ## proportion large vertebrate dispersed
+apply(disp.list[, -1], 2, function(x) sum(!is.na(x))) ## Total number of vertebrate dispersed species
+aggregate(Spp ~ pname, hyperdat.uni.wind, function(x) length(unique(x))) # species per site
+
+32/198; 29/164
+131/198; 110/164 ## proportion large vertebrate dispersed
 
 ## Number of stems in each life stage.
 aggregate(N1 ~ stage, hyperdat.uni.sel.c, sum) ##  univariate analysis
@@ -1141,8 +1146,15 @@ aggregate(N2 ~ stage, hyperdat.bi.sel.c,  sum) ## number of adults in bivariate
 
 aggregate(Spp ~ pname, hyperdat.uni.sel.c, function(x) length(unique(x))) # species per site
 aggregate(Spp ~ pname, hyperdat.bi.sel.c, function(x) length(unique(x))) # species per site
-mean(aggregate(Spp ~ pname, hyperdat.uni.sel.c, function(x) length(unique(x)))$Spp) ## mean S
-## total number of adults
+
+
+## Numbers in the abiotically dispersed categories
+aggregate(N1 ~ stage, hyperdat.uni.wind, sum) ##  univariate analysis
+aggregate(N1 ~ stage, hyperdat.bi.wind, sum) ## bivariate analysis
+aggregate(N2 ~ stage, hyperdat.bi.wind,  sum) ## number of adults in bivariate
+
+aggregate(Spp ~ pname, hyperdat.uni.wind, function(x) length(unique(x))) # species per site
+aggregate(Spp ~ pname, hyperdat.bi.wind, function(x) length(unique(x))) # species per site
 
 ```
 

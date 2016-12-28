@@ -37,11 +37,16 @@ standardise <-  function(x) (x - mean(x))/sd(x)
 ## Function to extract random effect BLUPs to allow plotting
 extractModRanefs <-  function(mod, level=1){
   require(reshape2)
-  ranefs <- lapply(mod, function(mod) ranef(mod))
+  ranefs <- lapply(mod, function(mod) {
+    if(!is.null(mod)) return(ranef(mod)) else
+      return(NULL)
+  })
+  
   if(class(ranefs[[1]])[2] =='list') 
-     ranefs <- do.call('cbind', lapply(ranefs, function(re) re[[level]]))
-  else
-  ranefs <- do.call('cbind', ranefs)  
+    ranefs <- do.call('cbind', lapply(ranefs, function(re){
+      if(!is.null(re)) return(re[[level]]) else
+        return(NA)})) else
+          ranefs <- do.call('cbind', ranefs)  
   ranefs$id <- rownames(ranefs)
   names(ranefs)[1:length(mod)] <-  paste('distance', 1:length(mod), sep='.')
   ranefs <-  melt(ranefs, id='id')
@@ -54,14 +59,19 @@ extractModRanefs <-  function(mod, level=1){
 plotModResids <-  function(mod){
   require(tidyr)
   
-  resids<- do.call('cbind', lapply(mod, function(mod) resid(mod)))
+  resids<- do.call('cbind', lapply(mod, function(mod) {
+    if(!is.null(mod)) return(resid(mod)) else
+      return(NULL)
+  }))
+  
   nms <- names(attr(mod[[1]]$terms, 'dataClasses'))
   nms <- nms[nms!='K']
   dat <- mod[[1]]$data[,nms]
   
-  colnames(resids)[1:length(mod)] <-  paste('distance', 1:length(mod), sep='.')
+  colnames(resids) <-  paste('distance', colnames(resids), sep='.')
+  dists <- colnames(resids)
   resids <- tbl_df(cbind(dat, labs =rownames(resids), resids))
-  resids <- gather_(resids, "distance", "resid", paste0('distance.', 1:15))
+  resids <- gather_(resids, "distance", "resid", dists)
   
   resids <- separate(resids, distance, c('d', 'distance'), '[.]') %>%
     separate(labs, c('site', 'species'), '/')
@@ -69,7 +79,6 @@ plotModResids <-  function(mod){
   return(resids)
   
 }
-
 ## a function that plots the coefficient and confidence intervals
 ## from a bootstrap
 effectplot.Kfunctionlme <- function(bootobj){

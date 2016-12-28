@@ -2,7 +2,7 @@
 title: "Analysis of hunting effects on spatial structure of trees with different dispersers"
 subtitle: "Data preparation"
 author: "Robert Bagchi"
-date: "12 November, 2016"
+date: "28 December, 2016"
 output: html_document
 ---
 
@@ -433,10 +433,11 @@ Later analysis reveals that some species/site combinations are major outliers in
 ```{r removeoutliers}
 ## Removing those species now
 hyperdat.bi.sel <- subset(hyperdat.bi, !((sp.id == 108 & pname=='BM') |
-                                               (sp.id==314 & pname=='CC2') |
-                                               (sp.id==38 & pname=='LA') |
-                                               (sp.id==144 & pname=='LA') |
-                                               (sp.id==226 & pname=="CC2"))
+                                           (sp.id==314 & pname=='CC2') |
+                                           (sp.id==38 & pname=='LA') |
+                                           (sp.id==144 & pname=='LA') |
+                                           (sp.id==226 & pname=="CC2") |
+                                           sp.id == 712 & pname=="TRC")
 )
 
 ## We can now remove unused levels

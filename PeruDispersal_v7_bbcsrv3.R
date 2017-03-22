@@ -28,7 +28,7 @@ print(paste("No. cpus = ", ncore,
 ## Load pre-processed data file
 ################################################################################
 
-load(file='../data/data4peruanalysisv7.RData')
+load(file='../data/data4peruanalysisv7.1.RData')
 
 ################################################################################
 ### Subsetting data

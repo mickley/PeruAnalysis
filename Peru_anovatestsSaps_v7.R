@@ -24,7 +24,7 @@ print(paste("interaction =", intlevel,
 type <- "sqrtNxNyweights"
 
 ## Load data
-load(file='../data/data4peruanalysisv7.RData')
+load(file='../data/data4peruanalysisv7.1.RData')
 
 ## Remove unknown dispersal species from within and between cohort analyses
 hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1)

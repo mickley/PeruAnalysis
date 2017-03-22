@@ -2,20 +2,21 @@
 title: "Analysis of hunting effects on spatial structure of trees with different dispersers"
 subtitle: "Model fitting"
 author: "Robert Bagchi"
-date: "July 30, 2016"
+date: "Jan, 9th 2016"
 output: html_document
 ---
 
 
 ```{r global_options, include=FALSE}
 options(width=80, digits=3)
+library(printr)
 ```
 
 ## 1. Preliminaries
 
 ### 1.1 Loading and installing libraries
 
-If you need to install the `ReplicatedPointPatterns` package, you can execute the following code. Note, you need the `devtools` package installed. To excute the code below, set 'eval=FALSE
+If you need to install the `ReplicatedPointPatterns` package, you can execute the following code. Note, you need the `devtools` package installed. To excute the code below, set 'eval=TRUE'
 '
 ```{r package_install, eval=FALSE}
 ##devtools::install_github('robertbagchi/ReplicatedPointPatterns')
@@ -44,6 +45,7 @@ library(grid)
 library(gtable)
 library(ggrepel)
 library(ggthemes)
+library(RColorBrewer)
 
 usecluster <- TRUE ## run bootstraps locally (FALSE) or use results from cluster (TRUE)
 windsep <- TRUE ## model wind dispersed species separately
@@ -98,7 +100,7 @@ theme_cust <- theme(axis.text = element_text(size=7),
 We load the data that have been processed in another script. These same data can also be used on the cluster for more extensive simulations.
 
 ```{r loaddata}
-load(file='../data/data4peruanalysisv7.RData')
+load(file='../data/data4peruanalysisv7.1.RData')
 
 ## remove species with unknown dispersal
 hyperdat.bi.sel.c <- subset(hyperdat.bi.sel, Unkwn !=1) ## Bivariate
@@ -584,7 +586,6 @@ intMod.bi <- lmeHyperframe(hyperdat.bi.sel.c, 0:rmax,
                          fixed="stage*huntpres*HSD",
                          random="1|site/Spp",
                          computeK=FALSE)
-intMod.bi
 ```
 
 #### 3.2.2 Model diagnostics
@@ -1055,7 +1056,7 @@ z.bi <- gtable_add_grob(z.bi,
                           textGrob("Disperser sensitivity", rot = -90,
                                    gp = gpar(fontsize=12))),
                      t=5, l=9, b=7, r=9, name = paste(runif(2)))
-##ggdraw(z.bi)
+ggdraw(z.bi)
 
 
 ## Univariate plot
@@ -1094,11 +1095,11 @@ ggdraw(z.uni)
 ## commented out to prevent mistakes
 
 if(clusterNiter >= 999){
-  png(file='../../huntingpaper/figures/Figure1_uni.png', width=6, height=4, units='in', res=600)
+  png(file='../../huntingpaper/figures/Figure2_uni.png', width=6, height=4, units='in', res=600)
   ggdraw(z.uni)
   dev.off()
   
-  pdf(file='../../huntingpaper/figures/Figure1_uni.pdf', width=6, height=4)
+  pdf(file='../../huntingpaper/figures/Figure2_uni.pdf', width=6, height=4)
   ggdraw(z.uni)
   dev.off()
   
@@ -1113,7 +1114,247 @@ if(clusterNiter >= 999){
 }
 ```
 
-## 5 Description of data set
+## 5 Ploting of individual species
+
+We can plot the individual K-functions for each species x site combination. First we remove K functions based on < 15 individuals, which are meaningless on their own but can contribute with low weight to an overall analysis. We then need to select species that are represented in both cohorts at at least one hunted and one non-hunted site.
+
+```{r indKfuncs_spsel}
+hyperdat.uni.ind <- subset(hyperdat.uni.sel.c, N1 > 15)
+hyperdat.uni.ind$Spp <- droplevels(hyperdat.uni.ind$Spp)
+counts <- table(hyperdat.uni.ind$Spp, hyperdat.uni.ind$site)
+counts <- as.matrix(counts)
+## only include species that are represented in at least 1 hunted and one intact site (note
+# that if a site has a species there will be 2 rows (saps + juvs)
+counts <- counts[apply(counts, 1, function(x) any(x[c(1, 4, 5)] > 1) & any(x[c(2, 3, 6)] > 1)),]
+sp.keep <- rownames(counts)
+length(sp.keep) ## number of species that qualify
+
+## Pulling out selected species
+hyperdat.uni.ind <- subset(hyperdat.uni.sel, Spp %in% sp.keep)
+hyperdat.bi.ind <- subset(hyperdat.bi.sel, Spp %in% sp.keep)
+hyperdat.uni.ind <- hyperdat.uni.ind[order(hyperdat.uni.ind$N1),]
+ntotals <- aggregate(N1 ~ Spp, data=subset(hyperdat.uni.sel.c, Spp %in% sp.keep), sum)
+ntotals <- ntotals[rev(order(ntotals$N1)),]
+disptype <- aggregate(HSD ~ Spp, data=hyperdat.uni.ind, mean)
+
+## add dispersal data
+disptype <- merge(disptype, ntotals)
+```
+
+Now we can select the most abundant species and plot them
+
+```{r plot fig1}
+## order species by abundance
+disptype <- disptype[order(disptype$N1, decreasing=T),]
+head(disptype)
+## The subsetting in this function which will determine which species are included
+## Including 1:4 so that 4 most abundant species are included
+## If more are included we need to modify the plot code too
+
+## Six most abundance species
+sp2plot <- disptype$Spp[1:4]
+
+ind.funcs <- hyperdat.uni.ind[hyperdat.uni.ind$Spp %in% sp2plot]
+ind.funcs <- ind.funcs[order(ind.funcs$HSD)]
+ind.funcs$Spp <- droplevels(ind.funcs$Spp)
+
+sp.mods <- lapply(split(ind.funcs, f=ind.funcs$Spp), function(sp.dat){
+  sp.mod <- lmHyperframe(sp.dat, 0:15, "stage*hunted", computeK=FALSE, minsamp=NA)
+  preddat <- expand.grid(stage=levels(sp.dat$stage), hunted=levels(sp.dat$hunted))
+  Xmat <- model.matrix(~stage*hunted, preddat)
+  sp.boot  <- lm.t.boot(sp.mod,lincomb=Xmat, nsim=nsim, alpha=0.05, simple=FALSE)
+  sp.dat <- with(sp.boot, {
+    data.frame(
+      Spp = unique(sp.dat$Spp),
+      do.call('rbind', replicate(15, preddat, simplify=FALSE)),
+      r=rep(1:15, each=nrow(preddat)),
+      K=(do.call('c', lmKpred)),
+      ucl=do.call('c', upper),
+      lcl=do.call('c', lower)
+       )})
+})
+
+sp.mods <- do.call('rbind', sp.mods)
+sp.mods$hunted <- factor(sp.mods$hunted, levels=c('intact', 'hunted'),
+                           labels=c('Low', 'High'))
+sp.mods$stage <- factor(sp.mods$stage, levels=c('S', 'J'),
+                           labels=c('Saplings', 'Juveniles'))
+
+ind.funcs <- do.call('rbind', lapply(1:nrow(ind.funcs), function(i, dat){
+  dat.i <- dat[i,]
+  Ki <- data.frame(dat.i$K)[,c(1,3)]
+  names(Ki) <- c('r', 'K')
+  dat.i <- cbind(as.data.frame(dat.i[, c('stage', 'N1', 'N2', 'Spp', 'site',
+                                         'pname', 'hunted', 'huntpres')]), Ki)
+  return(dat.i)
+}, dat=ind.funcs))
+
+ind.funcs$stage <- factor(ind.funcs$stage, labels=c('Saplings', 'Juveniles'))
+ind.funcs$Spp <-  factor(ind.funcs$Spp, levels=unique(ind.funcs$Spp))
+
+ind.funcs$N <-  ntotals$N1[match(ind.funcs$Spp, ntotals$Spp)]
+ind.funcs$HSD <- disptype$HSD[match(ind.funcs$Spp, disptype$Spp)]
+ind.funcs$splab <- paste(ind.funcs$Spp, ' (n = ', ind.funcs$N, ')', sep='')
+ind.funcs$hunted <- factor(ind.funcs$hunted, levels=c('intact', 'hunted'),
+                           labels=c('Low', 'High'))
+
+ind.funcs$site.lab <- ind.funcs$pname
+ind.funcs$site.lab[ind.funcs$r != 13] <- NA
+```
+
+We can now prepare the plot and customise it to display all the information we need.
+
+```{r spplotcustomise}
+sp.plot  <- ggplot(data=ind.funcs, aes(x=r, y=K)) +
+  geom_ribbon(data=sp.mods, aes(ymin=lcl, ymax=ucl, colour=NULL, fill=hunted, group=hunted), alpha=0.5) + 
+  geom_line(data=sp.mods, aes(colour=hunted, group=hunted), size=1) + 
+  geom_line(aes(colour=hunted, group=stage:site), linetype='dashed') +  
+  geom_text_repel(aes(label=site.lab), size=2, show.legend=FALSE) + ##,) segment.color=0) +
+  facet_grid(stage~ Spp, scales='free') +
+    scale_colour_brewer(palette='Dark2') +
+  scale_fill_brewer(palette='Pastel2') +
+  ##geom_abline(intercept=0, lty='dashed', col='grey50') +
+  theme_bw() + theme_cust +
+  labs(x='Distance, r, (m)', y=expression(hat(K)(r)[con]-hat(K)(r)[het]),
+       colour='Hunting\npressure', fill="Hunting\npressure")
+sp.plot <- sp.plot + theme(strip.text.x=element_text(size=7, face='italic'))
+
+z.sp <- ggplot_gtable(ggplot_build(sp.plot))
+##gtable_show_layout(z.sp)
+## add a label at the top and side
+
+z.sp <- gtable_add_rows(z.sp, height=z.sp$heights[3], pos=2)
+z.sp <- gtable_add_cols(z.sp, width=z.sp$widths[[11]], pos=11)
+z.sp <- gtable_add_cols(z.sp, width=z.sp$widths[[2]], pos=1)
+##sapply(z.test$grobs[grep('strip.absoluteGrob', sapply(z.test$grobs, function(x) x$name))], function(x) x$children[[1]]$gp$fill)
+
+z.sp <- gtable_add_grob(z.sp,
+                     list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
+                          textGrob("Relative conspecific clustering", rot = 90,
+                                   gp = gpar(fontsize=12))),
+                     t=4, l=2, b=8, r=2, name = paste(runif(2)))
+
+z.sp <- gtable_add_grob(z.sp,
+                     list(rectGrob(gp=gpar(fill='grey', col='grey', lwd=0.2)),
+                          textGrob("Insensitive Dispersers",
+                                   gp = gpar(fontsize=10))),
+                     t=3, l=5, b=3, r=7, name = paste(runif(2)))
+z.sp <- gtable_add_grob(z.sp,
+                     list(rectGrob(gp=gpar(fill='grey', col='grey', lwd=0.2)),
+                          textGrob("Sensitive Dispersers",
+                                   gp = gpar(fontsize=10))),
+                     t=3, l=9, b=3, r=11, name = paste(runif(2)))
+
+z.sp <- gtable_add_grob(z.sp,
+                     list(rectGrob(gp = gpar(fill='grey', col='grey', lwd=0.2)),
+                          textGrob("Stage", rot = -90,
+                                   gp = gpar(fontsize=10))),
+                     t=5, l=13, b=7, r=13, name = paste(runif(2)))
+
+ggdraw(z.sp)
+
+pdf('../../huntingpaper/figures/Figure1_bysp.pdf', width=8, height=4)
+ggdraw(z.sp)
+dev.off()
+png('../../huntingpaper/figures/Figure1_bysp.png', width=8, height=4, units='in', res=600)
+ggdraw(z.sp)
+dev.off()
+```
+
+We might also want to repeat for all species to make supplemental figure.
+
+```{r SAuppFigspFuncs}
+
+ind.funcs.all <- hyperdat.uni.ind
+ind.funcs.all <- ind.funcs.all[order(ind.funcs.all$HSD)]
+ind.funcs.all$Spp <- droplevels(ind.funcs.all$Spp)
+
+ind.funcs.all <- do.call('rbind', lapply(1:nrow(ind.funcs.all), function(i, dat){
+  dat.i <- dat[i,]
+  Ki <- data.frame(dat.i$K)[,c(1,3)]
+  names(Ki) <- c('r', 'K')
+  dat.i <- cbind(as.data.frame(dat.i[, c('stage', 'N1', 'N2', 'Spp', 'site',
+                                         'pname', 'hunted', 'huntpres')]), Ki)
+  return(dat.i)
+}, dat=ind.funcs.all))
+
+
+ind.funcs.all$stage <- factor(ind.funcs.all$stage, labels=c('Saplings', 'Juveniles'))
+## order by disperser sensitivity
+ind.funcs.all$Spp <-  droplevels(factor(ind.funcs.all$Spp, levels=disptype$Spp))
+
+# ind.funcs.all$N <-  ntotals$N1[match(ind.funcs.all$Spp, ntotals$Spp)]
+# ind.funcs.all$HSD <- disptype$HSD[match(ind.funcs.all$Spp, disptype$Spp)]
+# ind.funcs.all$splab <- paste(ind.funcs.all$Spp, ' (n = ', ind.funcs.all$N, ')', sep='')
+# ind.funcs.all$hunted <- factor(ind.funcs.all$hunted, levels=c('intact', 'hunted'),
+#                            labels=c('Low', 'High'))
+
+ind.funcs.all$site.lab <- ind.funcs.all$pname
+ind.funcs.all$site.lab[ind.funcs.all$r != 13] <- NA
+
+ind.funcs.all$N <-  ntotals$N1[match(ind.funcs.all$Spp, ntotals$Spp)]
+ind.funcs.all$HSD <- disptype$HSD[match(ind.funcs.all$Spp, disptype$Spp)]
+ind.funcs.all$splab <- paste(ind.funcs.all$Spp, '\n(n = ', ind.funcs.all$N, ')', sep='')
+hsdbysp <- aggregate(HSD ~ splab, data=ind.funcs.all, unique) 
+hsdbysp <- hsdbysp[order(hsdbysp$HSD),]
+ind.funcs.all$splab <- factor(ind.funcs.all$splab, levels=hsdbysp$splab) 
+ind.funcs.all$hunted <- factor(ind.funcs.all$hunted, levels=c('intact', 'hunted'),
+                           labels=c('Low', 'High'))
+
+plotgrps <- list(hsdbysp$splab[1:9], hsdbysp$splab[10:18], hsdbysp$splab[19:26])
+                 
+sp.plot.all  <- lapply(plotgrps, function(grp) 
+  {
+  ggplot(subset(ind.funcs.all, splab %in% grp), aes(x=r, y=K, colour=hunted, group=stage:site),
+         fill='white')+
+    geom_line() + geom_text_repel(aes(label=site.lab), size=2, show.legend=FALSE) +
+    facet_grid( splab + HSD  ~stage, scales='free') +
+    
+    scale_colour_brewer(palette='Dark2') +
+    geom_abline(intercept=0, lty='dashed', col='grey50') + theme_bw() + theme_cust +
+    labs(x='Distance, r, (m)', y=expression(hat(K)(r)[con]-hat(K)(r)[het]),
+         color='Hunting\npressure') +
+    theme(strip.text.y=element_text(size=6, face='italic'))
+})  
+
+
+z.sp.all <- lapply(sp.plot.all, function(pl) ggplot_gtable(ggplot_build(pl)))
+##gtable_show_layout(z.sp.all[[1]])
+## add a labels at the top and sides
+
+z.sp.all <- lapply(z.sp.all, function(z)
+{
+  z <- gtable_add_rows(z, height=unit(z$heights[[3]], 'cm'), pos=2)
+  z <- gtable_add_cols(z, width=unit(z$widths[[8]], 'cm'), pos=8)
+
+  ## add header row with stage label
+  z <- gtable_add_grob(z,list(rectGrob(gp=gpar(fill='grey', col='grey', lwd=0.2)),
+                       textGrob("Stage",
+                                gp = gpar(fontsize=10))),
+                  t=3, l=4, b=3, r=6, name = paste(runif(2)))
+  ## add column with disperser senstitivity label
+  barlngth <-  length(z$heights) -3
+
+  z <- gtable_add_grob(z,list(rectGrob(gp = gpar(fill='grey', col='grey', lwd=0.2)),
+                                   textGrob("Disperser sensitivity", rot = -90,
+                                            gp = gpar(fontsize=10))),
+                              t=5, l=9, b=barlngth, r=9, name = paste(runif(2)))
+  
+  z <- gtable_add_cols(z, width=z$widths[[2]], pos=1)
+  
+  z <- gtable_add_grob(z, list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
+                                   textGrob("Relative Conpecific clustering", rot = 90,
+                                            gp = gpar(fontsize=10))),
+                              t=5, l=2, b=barlngth, r=2, name = paste(runif(2)))
+  return(z)
+  })
+
+pdf('../../huntingpaper/figures/FigS2_byspecies_3pg.pdf', paper='A4', width=7, height=10)
+lapply(z.sp.all, function(z) ggdraw(z))
+dev.off()
+```
+
+## 6 Description of data set
 
 Extracing some summaries of the data to report in the paper
 

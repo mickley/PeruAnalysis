@@ -65,7 +65,7 @@ source("PeruConvenienceFunctions.R")
 ### 2.1 Read in the data
 ```{r loaddata}
 trees <- read.csv("../../data/mdd6plots_data_22jul2016.csv") ## tree locations
-dispersal <-  read.csv("../../data/MDDspp_dispersal_syndromes_22jul2016.csv") ## dispersal data
+dispersal <-  read.csv("../../data/MDDspp_dispersal_syndromes_22mar2017.csv") ## dispersal data
 sitedat <- read.csv("../../data/sitedata.csv") ## site information
 ```
 

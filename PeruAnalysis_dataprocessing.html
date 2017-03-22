@@ -169,7 +169,7 @@ library(gtable)</code></pre>
 <div id="read-in-the-data" class="section level3">
 <h3>2.1 Read in the data</h3>
 <pre class="r"><code>trees &lt;- read.csv(&quot;../../data/mdd6plots_data_22jul2016.csv&quot;) ## tree locations
-dispersal &lt;-  read.csv(&quot;../../data/MDDspp_dispersal_syndromes_22jul2016.csv&quot;) ## dispersal data
+dispersal &lt;-  read.csv(&quot;../../data/MDDspp_dispersal_syndromes_22mar2017.csv&quot;) ## dispersal data
 sitedat &lt;- read.csv(&quot;../../data/sitedata.csv&quot;) ## site information</code></pre>
 <pre class="r"><code>#Define maximum range over which to consider spatial patterns
 rmax &lt;- 15</code></pre>
@@ -534,7 +534,7 @@ summary(hyperdat.uni.sel)</code></pre>
 ##  Min.   :1675   Capparis macrophylla: 12   Min.   :0.000   Min.   :0.000  
 ##  1st Qu.:2448   Celtis schippii     : 12   1st Qu.:0.000   1st Qu.:0.000  
 ##  Median :3536   Cordia nodosa       : 12   Median :0.500   Median :0.000  
-##  Mean   :3372   Guarea kunthiana    : 12   Mean   :0.426   Mean   :0.138  
+##  Mean   :3372   Guarea kunthiana    : 12   Mean   :0.427   Mean   :0.137  
 ##  3rd Qu.:3933   Guarea macrophylla  : 12   3rd Qu.:0.800   3rd Qu.:0.200  
 ##  Max.   :5414   Hasseltia floribunda: 12   Max.   :1.000   Max.   :1.000  
 ##                 (Other)             :970                                  
@@ -543,19 +543,19 @@ summary(hyperdat.uni.sel)</code></pre>
 ##  Min.   :0.000   Min.   :0.000   Min.   :0.000   Min.   :0.000  
 ##  1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.000  
 ##  Median :0.000   Median :0.000   Median :0.000   Median :0.000  
-##  Mean   :0.283   Mean   :0.078   Mean   :0.023   Mean   :0.035  
+##  Mean   :0.282   Mean   :0.078   Mean   :0.025   Mean   :0.035  
 ##  3rd Qu.:0.500   3rd Qu.:0.000   3rd Qu.:0.000   3rd Qu.:0.000  
 ##  Max.   :1.000   Max.   :1.000   Max.   :1.000   Max.   :1.000  
 ##                                                                 
-##       Expl           Unkwn         Abiotic           HSD             HID       
-##  (numeric)       (numeric)       (numeric)      (numeric)       (numeric)      
-##  Min.   :0.000   Min.   :0.00   Min.   :0.000   Min.   :0.000   Min.   :0.000  
-##  1st Qu.:0.000   1st Qu.:0.00   1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.200  
-##  Median :0.000   Median :0.00   Median :0.000   Median :0.500   Median :0.500  
-##  Mean   :0.008   Mean   :0.01   Mean   :0.042   Mean   :0.433   Mean   :0.558  
-##  3rd Qu.:0.000   3rd Qu.:0.00   3rd Qu.:0.000   3rd Qu.:0.800   3rd Qu.:1.000  
-##  Max.   :1.000   Max.   :1.00   Max.   :1.000   Max.   :1.000   Max.   :1.000  
-##                                                                                
+##       Expl           Unkwn         Abiotic           HSD            HID       
+##  (numeric)       (numeric)       (numeric)      (numeric)      (numeric)      
+##  Min.   :0.000   Min.   :0.00   Min.   :0.000   Min.   :0.00   Min.   :0.000  
+##  1st Qu.:0.000   1st Qu.:0.00   1st Qu.:0.000   1st Qu.:0.00   1st Qu.:0.200  
+##  Median :0.000   Median :0.00   Median :0.000   Median :0.50   Median :0.500  
+##  Mean   :0.008   Mean   :0.01   Mean   :0.042   Mean   :0.43   Mean   :0.561  
+##  3rd Qu.:0.000   3rd Qu.:0.00   3rd Qu.:0.000   3rd Qu.:0.80   3rd Qu.:1.000  
+##  Max.   :1.000   Max.   :1.00   Max.   :1.000   Max.   :1.00   Max.   :1.000  
+##                                                                               
 ##  K     wts      
 ##  (rat) (numeric)
 ##                 
@@ -645,36 +645,36 @@ summary(hyperdat.bi)</code></pre>
 ##  Min.   :  2   Min.   :  2   Celtis schippii    : 12   Min.   :0.000  
 ##  1st Qu.:  5   1st Qu.:  5   Guarea macrophylla : 12   1st Qu.:0.000  
 ##  Median : 12   Median : 10   Pseudolmedia laevis: 12   Median :0.600  
-##  Mean   : 27   Mean   : 22   Quararibea wittii  : 12   Mean   :0.493  
+##  Mean   : 27   Mean   : 22   Quararibea wittii  : 12   Mean   :0.494  
 ##  3rd Qu.: 27   3rd Qu.: 22   Ruizodendron ovale : 12   3rd Qu.:0.800  
 ##  Max.   :700   Max.   :325   Sorocea pileata    : 12   Max.   :1.000  
 ##                              (Other)            :714                  
-##        SV              SB             Bat              TR            Wind      
-##  (numeric)       (numeric)       (numeric)       (numeric)      (numeric)      
-##  Min.   :0.000   Min.   :0.000   Min.   :0.000   Min.   :0.00   Min.   :0.000  
-##  1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.00   1st Qu.:0.000  
-##  Median :0.000   Median :0.000   Median :0.000   Median :0.00   Median :0.000  
-##  Mean   :0.129   Mean   :0.198   Mean   :0.089   Mean   :0.03   Mean   :0.043  
-##  3rd Qu.:0.200   3rd Qu.:0.200   3rd Qu.:0.000   3rd Qu.:0.00   3rd Qu.:0.000  
-##  Max.   :1.000   Max.   :1.000   Max.   :1.000   Max.   :1.00   Max.   :1.000  
-##                                                                                
-##       Expl          Unkwn         Abiotic           HSD             HID       
-##  (numeric)      (numeric)       (numeric)      (numeric)       (numeric)      
-##  Min.   :0.00   Min.   :0.00   Min.   :0.000   Min.   :0.000   Min.   :0.000  
-##  1st Qu.:0.00   1st Qu.:0.00   1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.200  
-##  Median :0.00   Median :0.00   Median :0.000   Median :0.600   Median :0.400  
-##  Mean   :0.01   Mean   :0.01   Mean   :0.053   Mean   :0.492   Mean   :0.498  
-##  3rd Qu.:0.00   3rd Qu.:0.00   3rd Qu.:0.000   3rd Qu.:0.800   3rd Qu.:1.000  
-##  Max.   :1.00   Max.   :1.00   Max.   :1.000   Max.   :1.000   Max.   :1.000  
+##        SV              SB             Bat              TR       
+##  (numeric)       (numeric)       (numeric)       (numeric)      
+##  Min.   :0.000   Min.   :0.000   Min.   :0.000   Min.   :0.000  
+##  1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.000   1st Qu.:0.000  
+##  Median :0.000   Median :0.000   Median :0.000   Median :0.000  
+##  Mean   :0.128   Mean   :0.197   Mean   :0.089   Mean   :0.032  
+##  3rd Qu.:0.200   3rd Qu.:0.200   3rd Qu.:0.000   3rd Qu.:0.000  
+##  Max.   :1.000   Max.   :1.000   Max.   :1.000   Max.   :1.000  
+##                                                                 
+##       Wind            Expl          Unkwn         Abiotic           HSD       
+##  (numeric)       (numeric)      (numeric)       (numeric)      (numeric)      
+##  Min.   :0.000   Min.   :0.00   Min.   :0.00   Min.   :0.000   Min.   :0.000  
+##  1st Qu.:0.000   1st Qu.:0.00   1st Qu.:0.00   1st Qu.:0.000   1st Qu.:0.000  
+##  Median :0.000   Median :0.00   Median :0.00   Median :0.000   Median :0.600  
+##  Mean   :0.043   Mean   :0.01   Mean   :0.01   Mean   :0.053   Mean   :0.492  
+##  3rd Qu.:0.000   3rd Qu.:0.00   3rd Qu.:0.00   3rd Qu.:0.000   3rd Qu.:0.800  
+##  Max.   :1.000   Max.   :1.00   Max.   :1.00   Max.   :1.000   Max.   :1.000  
 ##                                                                               
-##  K     wts      
-##  (rat) (numeric)
-##                 
-##                 
-##                 
-##                 
-##                 
-##                 
+##       HID        K     wts      
+##  (numeric)       (rat) (numeric)
+##  Min.   :0.000                  
+##  1st Qu.:0.200                  
+##  Median :0.400                  
+##  Mean   :0.498                  
+##  3rd Qu.:1.000                  
+##  Max.   :1.000                  
 ## </code></pre>
 <p>Because we are using plus-sampling rather than minus-sampling for the bivariate analysis, we don’t need to do a final cut of speices as we did in the univariaten case.</p>
 <p>Later analysis reveals that some species/site combinations are major outliers in the bivariate analysis. We could remove them in individual analyses, but that starts to get messy and could lead to errors. To deal with this problem once and for all, we remove them here</p>
@@ -697,7 +697,7 @@ hyperdat.bi.sel$Spp &lt;- droplevels(hyperdat.bi.sel$Spp)</code></pre>
 <p>At this point it is useful to save the objects we have created and are required for analysis so we don’t always have to repeat processing and to minimise processing on the cluster. We save our results as a data object.</p>
 <pre class="r"><code>save('dispersal', &quot;sitedat&quot;, 'hyperdat.uni.sel', 'hyperdat.bi.sel', 
      'ppp.sps.uni', &quot;ppp.sps.bi&quot;, 'trees', 'winlist', 'rmax',
-      file='../data/data4peruanalysisv7.RData')</code></pre>
+      file='../data/data4peruanalysisv7.1.RData')</code></pre>
 </div>
 
 

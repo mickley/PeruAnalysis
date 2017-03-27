@@ -90,8 +90,17 @@ dispersal$Abiotic <-  dispersal$Wind + dispersal$Expl
 Construct hunting pressure variable as the negative sum of the standardised densities of large primates and large birds
 ```{r huntprescalc}
 sitedat$hunted <- relevel(sitedat$hunted, 'intact')
-sitedat$huntpres <- with(sitedat, (standardise(lg.primates) + standardise(lg.birds) + standardise(md.primates)))*(-1)
+# with(sitedat, (standardise(lg.primates) + standardise(lg.birds)))*(-1)
+huntpresdat <- summarise(group_by(sitedat, forest), 
+          lg.primates=unique(lg.primates), 
+          md.primates=unique(md.primates),
+          lg.birds=unique(lg.birds)) %>%
+  mutate(huntpres = -1*(standardise(lg.primates) + standardise(md.primates) +
+           standardise(lg.birds)))
+    
+sitedat$huntpres <- huntpresdat$huntpres[match(sitedat$forest, huntpresdat$forest)]
 sitedat[order(sitedat$pname),] ## take a quick look
+
 ```
 
 #### 2.2.3 Organise spatial pattern data
@@ -452,6 +461,6 @@ At this point it is useful to save the objects we have created and are required 
 ```{r saveobjects}
 save('dispersal', "sitedat", 'hyperdat.uni.sel', 'hyperdat.bi.sel', 
      'ppp.sps.uni', "ppp.sps.bi", 'trees', 'winlist', 'rmax',
-      file='../data/data4peruanalysisv7.1.RData')
+      file='../data/data4peruanalysisv7.2.RData')
 ```
 

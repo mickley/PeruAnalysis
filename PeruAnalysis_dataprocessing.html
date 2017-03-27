@@ -189,7 +189,15 @@ dispersal$Abiotic &lt;-  dispersal$Wind + dispersal$Expl</code></pre>
 <h4>2.2.2 Calculate hunting pressure</h4>
 <p>Construct hunting pressure variable as the negative sum of the standardised densities of large primates and large birds</p>
 <pre class="r"><code>sitedat$hunted &lt;- relevel(sitedat$hunted, 'intact')
-sitedat$huntpres &lt;- with(sitedat, (standardise(lg.primates) + standardise(lg.birds) + standardise(md.primates)))*(-1)
+# with(sitedat, (standardise(lg.primates) + standardise(lg.birds)))*(-1)
+huntpresdat &lt;- summarise(group_by(sitedat, forest), 
+          lg.primates=unique(lg.primates), 
+          md.primates=unique(md.primates),
+          lg.birds=unique(lg.birds)) %&gt;%
+  mutate(huntpres = -1*(standardise(lg.primates) + standardise(md.primates) +
+           standardise(lg.birds)))
+    
+sitedat$huntpres &lt;- huntpresdat$huntpres[match(sitedat$forest, huntpresdat$forest)]
 sitedat[order(sitedat$pname),] ## take a quick look</code></pre>
 <pre><code>##        site forest pname hunted lg.primates lg.birds md.primates sm.primates
 ## 1        BM     BM    BM hunted         0.0      2.1         8.4        86.4
@@ -199,12 +207,12 @@ sitedat[order(sitedat$pname),] ## take a quick look</code></pre>
 ## 5        RA     RA    RA hunted         0.0      8.0         3.7        37.6
 ## 6       TRC    TRC   TRC intact        15.9     44.0        11.1         7.4
 ##   huntpres
-## 1    2.898
-## 3   -2.951
-## 2   -2.951
-## 4    1.101
-## 5    2.737
-## 6   -0.834</code></pre>
+## 1    2.352
+## 3   -3.862
+## 2   -3.862
+## 4    0.543
+## 5    2.251
+## 6   -1.283</code></pre>
 </div>
 <div id="organise-spatial-pattern-data" class="section level4">
 <h4>2.2.3 Organise spatial pattern data</h4>
@@ -520,15 +528,15 @@ summary(hyperdat.uni.sel)</code></pre>
 ##  RA       :158   306    : 12                        TRC  :128   RA :158  
 ##  TRC      :128   320    : 12                                    TRC:128  
 ##                  (Other):970                                             
-##     hunted     lg.primates      lg.birds       huntpres            N1     
-##   (factor)       (numeric)     (numeric)      (numeric)      (integer)    
-##  intact:544   Min.   : 0.0   Min.   : 2.1   Min.   :-2.951   Min.   :  2  
-##  hunted:498   1st Qu.: 0.0   1st Qu.: 8.0   1st Qu.:-2.951   1st Qu.:  5  
-##               Median :15.9   Median :29.2   Median :-0.834   Median : 11  
-##               Mean   :17.5   Mean   :21.5   Mean   :-0.199   Mean   : 25  
-##               3rd Qu.:37.5   3rd Qu.:29.2   3rd Qu.: 2.737   3rd Qu.: 24  
-##               Max.   :37.5   Max.   :44.0   Max.   : 2.898   Max.   :700  
-##                                                                           
+##     hunted     lg.primates      lg.birds       huntpres           N1     
+##   (factor)       (numeric)     (numeric)      (numeric)     (integer)    
+##  intact:544   Min.   : 0.0   Min.   : 2.1   Min.   :-3.86   Min.   :  2  
+##  hunted:498   1st Qu.: 0.0   1st Qu.: 8.0   1st Qu.:-3.86   1st Qu.:  5  
+##               Median :15.9   Median :29.2   Median :-1.28   Median : 11  
+##               Mean   :17.5   Mean   :21.5   Mean   :-0.87   Mean   : 25  
+##               3rd Qu.:37.5   3rd Qu.:29.2   3rd Qu.: 2.25   3rd Qu.: 24  
+##               Max.   :37.5   Max.   :44.0   Max.   : 2.35   Max.   :700  
+##                                                                          
 ##        N2                         Spp            LV              SV       
 ##  (integer)                   (factor)      (numeric)       (numeric)      
 ##  Min.   :1675   Capparis macrophylla: 12   Min.   :0.000   Min.   :0.000  
@@ -631,15 +639,15 @@ summary(hyperdat.bi)</code></pre>
 ##  RA       :120   628    : 12                               TRC  :116  
 ##  TRC      :116   664    : 12                                          
 ##                  (Other):714                                          
-##  pname        hunted     lg.primates      lg.birds       huntpres     
-##  (factor)   (factor)       (numeric)     (numeric)      (numeric)     
-##  BM :118   intact:422   Min.   : 0.0   Min.   : 2.1   Min.   :-2.951  
-##  CC1:146   hunted:364   1st Qu.: 0.0   1st Qu.: 8.0   1st Qu.:-2.951  
-##  CC2:160                Median :15.9   Median :29.2   Median :-0.834  
-##  LA :126                Mean   :17.6   Mean   :22.3   Mean   :-0.243  
-##  RA :120                3rd Qu.:37.5   3rd Qu.:29.2   3rd Qu.: 2.737  
-##  TRC:116                Max.   :37.5   Max.   :44.0   Max.   : 2.898  
-##                                                                       
+##  pname        hunted     lg.primates      lg.birds       huntpres    
+##  (factor)   (factor)       (numeric)     (numeric)      (numeric)    
+##  BM :118   intact:422   Min.   : 0.0   Min.   : 2.1   Min.   :-3.86  
+##  CC1:146   hunted:364   1st Qu.: 0.0   1st Qu.: 8.0   1st Qu.:-3.86  
+##  CC2:160                Median :15.9   Median :29.2   Median :-1.28  
+##  LA :126                Mean   :17.6   Mean   :22.3   Mean   :-0.91  
+##  RA :120                3rd Qu.:37.5   3rd Qu.:29.2   3rd Qu.: 2.25  
+##  TRC:116                Max.   :37.5   Max.   :44.0   Max.   : 2.35  
+##                                                                      
 ##        N1            N2                       Spp            LV       
 ##  (integer)     (integer)                 (factor)      (numeric)      
 ##  Min.   :  2   Min.   :  2   Celtis schippii    : 12   Min.   :0.000  
@@ -697,7 +705,7 @@ hyperdat.bi.sel$Spp &lt;- droplevels(hyperdat.bi.sel$Spp)</code></pre>
 <p>At this point it is useful to save the objects we have created and are required for analysis so we don’t always have to repeat processing and to minimise processing on the cluster. We save our results as a data object.</p>
 <pre class="r"><code>save('dispersal', &quot;sitedat&quot;, 'hyperdat.uni.sel', 'hyperdat.bi.sel', 
      'ppp.sps.uni', &quot;ppp.sps.bi&quot;, 'trees', 'winlist', 'rmax',
-      file='../data/data4peruanalysisv7.1.RData')</code></pre>
+      file='../data/data4peruanalysisv7.2.RData')</code></pre>
 </div>
 
 

@@ -1031,12 +1031,13 @@ pl.int.uni <- ggplot(int.plotdat, aes(x=distance, y=K.uni, ymin=lcl.uni, ymax=uc
          y=expression(paste('[', (hat(K)(r)[con]-hat(K)(r)[het]), ']')),
          color='Cohort', fill='Cohort')
 
-## Format figures (1 and 3)
+## Format figures (2 and 3)
 z.bi <- ggplot_gtable(ggplot_build(pl.int.bi))
+
 
 ##gtable_show_layout(z.bi)
 ## add a label at the top and side
-z.bi <- gtable_add_rows(z.bi, height=unit(z.bi$heights[[3]], 'cm'), pos=2)
+z.bi <- gtable_add_rows(z.bi, height=unit(z.bi$heights[[6]], 'cm'), pos=5)
 z.bi <- gtable_add_cols(z.bi, width=unit(z.bi$widths[[7]], 'cm'), pos=7)
 z.bi <- gtable_add_cols(z.bi, width=z.bi$widths[[2]], pos=1)
 
@@ -1044,18 +1045,18 @@ z.bi <- gtable_add_grob(z.bi,
                      list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
                           textGrob("Relative conspecific clustering", rot = 90,
                                    gp = gpar(fontsize=12))),
-                     t=3, l=2, b=9, r=2, name = paste(runif(2)))
+                     t=6, l=2, b=12, r=2, name = paste(runif(2)))
 
 z.bi <- gtable_add_grob(z.bi,
                      list(rectGrob(gp=gpar(fill='grey', col=NA, lwd=0.2)),
                           textGrob("Hunting pressure",
                                    gp = gpar(fontsize=12))),
-                     t=3, l=5, b=3, r=7, name = paste(runif(2)))
+                     t=6, l=5, b=6, r=7, name = paste(runif(2)))
 z.bi <- gtable_add_grob(z.bi,
                      list(rectGrob(gp = gpar(fill='grey', col=NA, lwd=0.2)),
                           textGrob("Disperser sensitivity", rot = -90,
                                    gp = gpar(fontsize=12))),
-                     t=5, l=9, b=7, r=9, name = paste(runif(2)))
+                     t=8, l=9, b=10, r=9, name = paste(runif(2)))
 ggdraw(z.bi)
 
 
@@ -1064,7 +1065,7 @@ z.uni <- ggplot_gtable(ggplot_build(pl.int.uni+theme_cust))
 ##gtable_show_layout(z.uni)
 ## add a label at the top and side
 ## extra row
-z.uni <- gtable_add_rows(z.uni, height=unit(z.uni$heights[[3]], 'cm'),  pos=2)
+z.uni <- gtable_add_rows(z.uni, height=unit(z.uni$heights[[6]], 'cm'),  pos=5)
 ## extra column
 z.uni <- gtable_add_cols(z.uni, width=unit(z.uni$widths[[7]], 'cm'), pos=7)
 z.uni <- gtable_add_cols(z.uni, width=z.uni$widths[[2]], pos=1)
@@ -1073,20 +1074,20 @@ z.uni <- gtable_add_grob(z.uni,
                      list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
                           textGrob("Relative  conspecific clustering", rot = 90,
                                    gp = gpar(fontsize=12))),
-                     t=3, l=2, b=9, r=2, name = paste(runif(2)))
+                     t=6, l=2, b=12, r=2, name = paste(runif(2)))
 
 ## add hunting pressure label
 z.uni <- gtable_add_grob(z.uni,
                          list(rectGrob(gp=gpar(fill='grey', col=NA, lwd=0.2)),
                               textGrob("Hunting pressure",
                                        gp = gpar(fontsize=12))),
-                         t=3, l=5, b=3, r=7, name = paste(runif(2)))
+                         t=6, l=5, b=6, r=7, name = paste(runif(2)))
 ## add disperser sensitivity label
 z.uni <- gtable_add_grob(z.uni,
                          list(rectGrob(gp = gpar(fill='grey', col=NA, lwd=0.2)),
                               textGrob("Disperser sensitivity", rot = -90,
                                        gp = gpar(fontsize=12))),
-                         t=5, l=9, b=7, r=9, name = paste(runif(2)))
+                         t=8, l=9, b=10, r=9, name = paste(runif(2)))
 
 ggdraw(z.uni)
 
@@ -1222,9 +1223,9 @@ sp.plot <- sp.plot + theme(strip.text.x=element_text(size=7, face='italic'))
 z.sp <- ggplot_gtable(ggplot_build(sp.plot))
 ##gtable_show_layout(z.sp)
 ## add a label at the top and side
-
-z.sp <- gtable_add_rows(z.sp, height=z.sp$heights[3], pos=2)
-z.sp <- gtable_add_cols(z.sp, width=z.sp$widths[[11]], pos=11)
+ggdraw(z.sp)
+z.sp <- gtable_add_rows(z.sp, height=z.sp$heights[6], pos=5)
+z.sp <- gtable_add_cols(z.sp, width=z.sp$widths[[11]], pos=12)
 z.sp <- gtable_add_cols(z.sp, width=z.sp$widths[[2]], pos=1)
 ##sapply(z.test$grobs[grep('strip.absoluteGrob', sapply(z.test$grobs, function(x) x$name))], function(x) x$children[[1]]$gp$fill)
 
@@ -1232,24 +1233,24 @@ z.sp <- gtable_add_grob(z.sp,
                      list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
                           textGrob("Relative conspecific clustering", rot = 90,
                                    gp = gpar(fontsize=12))),
-                     t=4, l=2, b=8, r=2, name = paste(runif(2)))
+                     t=7, l=2, b=11, r=2, name = paste(runif(2)))
 
 z.sp <- gtable_add_grob(z.sp,
                      list(rectGrob(gp=gpar(fill='grey', col='grey', lwd=0.2)),
                           textGrob("Insensitive Dispersers",
                                    gp = gpar(fontsize=10))),
-                     t=3, l=5, b=3, r=7, name = paste(runif(2)))
+                     t=6, l=5, b=6, r=7, name = paste(runif(2)))
 z.sp <- gtable_add_grob(z.sp,
                      list(rectGrob(gp=gpar(fill='grey', col='grey', lwd=0.2)),
                           textGrob("Sensitive Dispersers",
                                    gp = gpar(fontsize=10))),
-                     t=3, l=9, b=3, r=11, name = paste(runif(2)))
+                     t=6, l=9, b=6, r=11, name = paste(runif(2)))
 
 z.sp <- gtable_add_grob(z.sp,
                      list(rectGrob(gp = gpar(fill='grey', col='grey', lwd=0.2)),
                           textGrob("Stage", rot = -90,
                                    gp = gpar(fontsize=10))),
-                     t=5, l=13, b=7, r=13, name = paste(runif(2)))
+                     t=8, l=14, b=10, r=14, name = paste(runif(2)))
 
 ggdraw(z.sp)
 
@@ -1263,7 +1264,7 @@ dev.off()
 
 We might also want to repeat for all species to make supplemental figure.
 
-```{r SAuppFigspFuncs}
+```{r SAuppFigspFuncs, warning=FALSE}
 
 ind.funcs.all <- hyperdat.uni.ind
 ind.funcs.all <- ind.funcs.all[order(ind.funcs.all$HSD)]
@@ -1308,7 +1309,7 @@ sp.plot.all  <- lapply(plotgrps, function(grp)
   ggplot(subset(ind.funcs.all, splab %in% grp), aes(x=r, y=K, colour=hunted, group=stage:site),
          fill='white')+
     geom_line() + geom_text_repel(aes(label=site.lab), size=2, show.legend=FALSE) +
-    facet_grid( splab + HSD  ~stage, scales='free') +
+    facet_grid(HSD + splab   ~stage, scales='free') +
     
     scale_colour_brewer(palette='Dark2') +
     geom_abline(intercept=0, lty='dashed', col='grey50') + theme_bw() + theme_cust +
@@ -1321,35 +1322,36 @@ sp.plot.all  <- lapply(plotgrps, function(grp)
 z.sp.all <- lapply(sp.plot.all, function(pl) ggplot_gtable(ggplot_build(pl)))
 ##gtable_show_layout(z.sp.all[[1]])
 ## add a labels at the top and sides
+z <- z.sp.all[[1]]
 
 z.sp.all <- lapply(z.sp.all, function(z)
 {
-  z <- gtable_add_rows(z, height=unit(z$heights[[3]], 'cm'), pos=2)
-  z <- gtable_add_cols(z, width=unit(z$widths[[8]], 'cm'), pos=8)
+  z <- gtable_add_rows(z, height=unit(z$heights[[6]], 'cm'), pos=5)
+  z <- gtable_add_cols(z, width=unit(z$heights[[6]], 'cm'), pos=8)
 
   ## add header row with stage label
   z <- gtable_add_grob(z,list(rectGrob(gp=gpar(fill='grey', col='grey', lwd=0.2)),
                        textGrob("Stage",
                                 gp = gpar(fontsize=10))),
-                  t=3, l=4, b=3, r=6, name = paste(runif(2)))
+                  t=6, l=4, b=6, r=6, name = paste(runif(2)))
   ## add column with disperser senstitivity label
-  barlngth <-  length(z$heights) -3
+  barlngth <-  length(z$heights) -4
 
   z <- gtable_add_grob(z,list(rectGrob(gp = gpar(fill='grey', col='grey', lwd=0.2)),
                                    textGrob("Disperser sensitivity", rot = -90,
                                             gp = gpar(fontsize=10))),
-                              t=5, l=9, b=barlngth, r=9, name = paste(runif(2)))
-  
+                              t=8, l=9, b=barlngth, r=9, name = paste(runif(2)))
+
   z <- gtable_add_cols(z, width=z$widths[[2]], pos=1)
-  
+
   z <- gtable_add_grob(z, list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
                                    textGrob("Relative Conpecific clustering", rot = 90,
                                             gp = gpar(fontsize=10))),
-                              t=5, l=2, b=barlngth, r=2, name = paste(runif(2)))
+                              t=7, l=2, b=barlngth, r=2, name = paste(runif(2)))
   return(z)
   })
 
-pdf('../../huntingpaper/figures/FigS2_byspecies_3pg.pdf', paper='A4', width=7, height=10)
+pdf('../../huntingpaper/figures/FigS1_byspecies_3pg.pdf', paper='A4', width=7, height=10)
 lapply(z.sp.all, function(z) ggdraw(z))
 dev.off()
 ```

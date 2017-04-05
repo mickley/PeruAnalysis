@@ -1372,7 +1372,7 @@ disp.list.bi <-  aggregate(cbind(LV, SV, SB, Bat, TR, Wind, Expl) ~Spp, subset(h
 
 ## Merge data from univariate and bivariate analyses
 disp.list <- merge(disp.list.uni, disp.list.bi, by="Spp", all=T, suffix=c('uni', 'bi'))
-
+summary(disp.list)
 ## calculate number of species in each dispersal group
 apply(disp.list[, -1], 2, function(x) sum(x>0, na.rm=T)) ## number dependent to some degree
 apply(disp.list[, -1], 2, function(x) sum(x==1, na.rm=T)) ## number totally dependent

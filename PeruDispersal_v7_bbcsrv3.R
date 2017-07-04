@@ -68,8 +68,8 @@ allform <- update(formula(intMod.uni[[1]]), NULL~.)
 modmat.int <-  model.matrix(allform, data=preddat.int)
 
 preddat.int <-  expand.grid(stage=c('S', 'J'), 
-                            huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
-                            HSD = c(0, 1))
+                            huntpres=quantile(sitedat$huntpres, c(0, 0.25, 0.5, 0.75, 1)),
+                            HSD = c(0, 0.25, 0.5, 0.75, 1))
 ## RHS of model formula
 allform <- update(formula(intMod.uni[[1]]), NULL~.)
 ## Make model matrix

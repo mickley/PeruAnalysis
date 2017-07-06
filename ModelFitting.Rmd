@@ -87,12 +87,9 @@ niterFind <- function(x) length(x$anovas[[1]]$dtable$D[[1]]$D.boot)
 theme_cust <- theme(axis.text = element_text(size=7),
                     axis.title.y=element_text(size=10, face='bold'),
                     plot.margin=unit(c(0.5, 0.3, 0.5, 0 ),  'lines'),
-                    strip.background=element_rect(fill='white'),
                     strip.text=element_text(size=8),
                     legend.text=element_text(size=8),
-                    legend.title=element_text(size=10),
-                    panel.grid.minor=element_blank(),
-                    panel.grid.major=element_blank())
+                    legend.title=element_text(size=10))
 ```
 
 ### 1.4 Load the pre-processed data
@@ -220,8 +217,8 @@ These species are generally relatively rare at the sites where they are outliers
 ```{r unimodel_confints}
 ## First make the model matrix
 preddat.sap <-  expand.grid(stage=c('S'),
-                            huntpres=quantile(sitedat$huntpres, c(0.25, 0.75)),
-                            HSD = c(0, 1))
+                            huntpres=quantile(sitedat$huntpres, seq(0, 1, 0.25)),
+                            HSD = seq(0, 1, 0.25))
 
 sapform <- update(formula(sapMod.uni[[1]]), NULL~.) ## extract formula (and remove lhs)
 modmat.sap <-  model.matrix(sapform, data=preddat.sap) ## make model matrix
@@ -721,15 +718,15 @@ Once again, we can run the bootstrapping on a cluster and we can use those resul
 ```{r clusterresultsJuvs, eval=usecluster}
 ## Alternatively, load results from cluster
 if(windsep)
-  load("../results/v7.0/bbcsrv3/PeruDispersal_v7_rmax15_NoAbiotic.RData") else
+  load("../results/v7.1/PeruDispersal_v7_rmax15_NoAbiotic.RData") else
     load("../results/v7.0/PeruDispersal_v7_rmax15_nsim999.RData")
 
-results$nsim
+
 intMod.uni.boot <- results$uni$boot
 intMod.bi.boot <- results$bi$boot
 preddat.int <-  results$preddat
 
-clusterNiter <- results$nsim
+(clusterNiter <- results$nsim)
 ```
 
 #### 3.4.2 Plotting the coefficients
@@ -1001,34 +998,40 @@ int.plotdat <- merge(int.uni.plotdat, int.bi.plotdat, by=c('distance', 'stage','
 
 ## More reader friendly labels
 int.plotdat$stage <- factor(int.plotdat$stage, labels=c('Saplings', 'Juveniles'))
-int.plotdat$huntpres <-  factor(int.plotdat$huntpres, labels=c('Low', 'High'))
-int.plotdat$HSD <-  factor(int.plotdat$HSD, labels=c('Insensitive', 'Sensitive'))
+int.plotdat$huntpres <-  round(int.plotdat$huntpres, 1)
+
+# int.plotdat$huntpres <-  factor(int.plotdat$huntpres, labels=c('Low', 'High'))
+# int.plotdat$HSD <-  factor(int.plotdat$HSD, labels=c('Insensitive', 'Sensitive'))
 
 ## stat = identity hardwires the order - fixing so that isn't a problem
 int.plotdat <- int.plotdat[order(int.plotdat$distance),]
+int.plotdat <- subset(int.plotdat, huntpres %in% c(-3, 0.1, 2.9) & HSD %in% c(0, 0.5, 1))
 
 ## Make plots
 pl.int.bi <-
     ggplot(int.plotdat, aes(x=distance, y=K.bi, ymin=lcl.bi, ymax=ucl.bi,
                     colour=stage, fill=stage)) +
     geom_ribbon(alpha=0.5, colour=NA) +  geom_line() +
-    facet_grid(HSD~  huntpres, scales="free_y") +
+    facet_grid(HSD~  huntpres, as.table=FALSE) +
     geom_abline(intercept=0, slope=0, linetype='dashed', col='grey') +
-    theme_bw() + theme_cust + scale_x_continuous(limits=c(0, 15)) +
+    theme_tufte() + theme_cust + 
+    scale_x_continuous(limits=c(0, 15)) +
     scale_color_brewer(palette='Set1')+ scale_fill_brewer(palette='Pastel1') +
     labs(x='Distance, r, (m)',
          y=expression(paste('[', (hat(K)(r)[con]-hat(K)(r)[het]), ']')),
         color='Cohort', fill='Cohort')
 
-pl.int.uni <- ggplot(int.plotdat, aes(x=distance, y=K.uni, ymin=lcl.uni, ymax=ucl.uni,
-                                      colour=stage, fill=stage)) +
-    geom_ribbon(alpha=0.5, colour=NA) +  geom_line() +
-    facet_grid(HSD~  huntpres) +
-    geom_abline(intercept=0, slope=0, linetype='dashed', col='grey') +
-    theme_bw() + theme_cust + scale_x_continuous(limits=c(0, 15)) +
-    scale_color_brewer(palette='Set1')+ scale_fill_brewer(palette='Pastel1') +
-    labs(x='Distance, r, (m)',
-         y=expression(paste('[', (hat(K)(r)[con]-hat(K)(r)[het]), ']')),
+pl.int.uni <- 
+  ggplot(int.plotdat, aes(x=distance, y=K.uni, ymin=lcl.uni, ymax=ucl.uni,
+             colour=stage, fill=stage)) +
+  geom_ribbon(alpha=0.5, colour=NA) +  geom_line() +
+  facet_grid(HSD~  huntpres, as.table=FALSE) +
+  geom_abline(intercept=0, slope=0, linetype='dashed', col='grey') +
+  theme_tufte() + theme_cust +
+  scale_x_continuous(limits=c(0, 15)) +
+  scale_color_brewer(palette='Set1')+ scale_fill_brewer(palette='Pastel1') +
+  labs(x='Distance, r, (m)',
+       y=expression(paste('[', (hat(K)(r)[con]-hat(K)(r)[het]), ']')),
          color='Cohort', fill='Cohort')
 
 ## Format figures (2 and 3)
@@ -1038,56 +1041,80 @@ z.bi <- ggplot_gtable(ggplot_build(pl.int.bi))
 ##gtable_show_layout(z.bi)
 ## add a label at the top and side
 z.bi <- gtable_add_rows(z.bi, height=unit(z.bi$heights[[6]], 'cm'), pos=5)
-z.bi <- gtable_add_cols(z.bi, width=unit(z.bi$widths[[7]], 'cm'), pos=7)
+z.bi <- gtable_add_rows(z.bi, height=unit(z.bi$heights[[6]], 'cm'), pos=5)
+z.bi <- gtable_add_cols(z.bi, width=unit(z.bi$widths[[9]], 'cm'), pos=9)
+z.bi <- gtable_add_cols(z.bi, width=unit(z.bi$widths[[9]], 'cm'), pos=9)
 z.bi <- gtable_add_cols(z.bi, width=z.bi$widths[[2]], pos=1)
 
 z.bi <- gtable_add_grob(z.bi,
                      list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
                           textGrob("Relative conspecific clustering", rot = 90,
-                                   gp = gpar(fontsize=12))),
-                     t=6, l=2, b=12, r=2, name = paste(runif(2)))
+                                   gp = gpar(fontsize=10))),
+                     t=8, l=2, b=14, r=2, name = paste(runif(2)))
+
 
 z.bi <- gtable_add_grob(z.bi,
-                     list(rectGrob(gp=gpar(fill='grey', col=NA, lwd=0.2)),
-                          textGrob("Hunting pressure",
-                                   gp = gpar(fontsize=12))),
-                     t=6, l=5, b=6, r=7, name = paste(runif(2)))
+                     list(rectGrob(gp=gpar(fill=NA, col=NA, lwd=0)),
+                          textGrob("Defaunation Index",
+                                   gp = gpar(fontsize=10))),
+                     t=6, l=5, b=6, r=9, name = paste(runif(2)))
+
 z.bi <- gtable_add_grob(z.bi,
-                     list(rectGrob(gp = gpar(fill='grey', col=NA, lwd=0.2)),
-                          textGrob("Disperser sensitivity", rot = -90,
-                                   gp = gpar(fontsize=12))),
-                     t=8, l=9, b=10, r=9, name = paste(runif(2)))
+                        linesGrob(x=seq(0.1, 0.9, 0.1), y=rep(0.7, 9),
+                                  arrow=arrow(angle=30, length=unit(0.3, "npc"))),
+                        t=7, l=5, b=7, r=9, name = paste(runif(1)))
+
+z.bi <- gtable_add_grob(z.bi,
+                        list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
+                             textGrob("Disperser sensitivity (HSD)", rot = -90,
+                                      gp = gpar(fontsize=10))),
+                        t=8, l=12, b=14, r=12, name = paste(runif(2)))
+
+z.bi <- gtable_add_grob(z.bi,
+                        linesGrob(x=rep(0.7, 9), y=seq(0.1, 0.9, 0.1), 
+                                  arrow=arrow(length=unit(0.2, "npc"))),
+                        t=8, l=11, b=14, r=10, name = paste(runif(1)))
+
 ggdraw(z.bi)
 
-
 ## Univariate plot
-z.uni <- ggplot_gtable(ggplot_build(pl.int.uni+theme_cust))
+z.uni <- ggplot_gtable(ggplot_build(pl.int.uni))
 ##gtable_show_layout(z.uni)
-## add a label at the top and side
-## extra row
+
+## add labels at the top and side
 z.uni <- gtable_add_rows(z.uni, height=unit(z.uni$heights[[6]], 'cm'),  pos=5)
-## extra column
-z.uni <- gtable_add_cols(z.uni, width=unit(z.uni$widths[[7]], 'cm'), pos=7)
+z.uni <- gtable_add_rows(z.uni, height=unit(z.uni$heights[[6]], 'cm'),  pos=5)
+z.uni <- gtable_add_cols(z.uni, width=unit(z.uni$widths[[9]], 'cm'), pos=9)
+z.uni <- gtable_add_cols(z.uni, width=unit(z.uni$widths[[9]], 'cm'), pos=9)
 z.uni <- gtable_add_cols(z.uni, width=z.uni$widths[[2]], pos=1)
 
 z.uni <- gtable_add_grob(z.uni,
                      list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
                           textGrob("Relative  conspecific clustering", rot = 90,
-                                   gp = gpar(fontsize=12))),
-                     t=6, l=2, b=12, r=2, name = paste(runif(2)))
+                                   gp = gpar(fontsize=10))),
+                     t=8, l=2, b=14, r=2, name = paste(runif(2)))
 
-## add hunting pressure label
+## add defaunation label
 z.uni <- gtable_add_grob(z.uni,
-                         list(rectGrob(gp=gpar(fill='grey', col=NA, lwd=0.2)),
-                              textGrob("Hunting pressure",
-                                       gp = gpar(fontsize=12))),
-                         t=6, l=5, b=6, r=7, name = paste(runif(2)))
+                         list(rectGrob(gp=gpar(fill=NA, col=NA, lwd=0)),
+                              textGrob("Defaunation Index",
+                                       gp = gpar(fontsize=10))),
+                         t=6, l=5, b=6, r=9, name = paste(runif(2)))
+z.uni <- gtable_add_grob(z.uni,
+                        linesGrob(x=seq(0.1, 0.9, 0.1), y=rep(0.7, 9),
+                                  arrow=arrow(angle=30, length=unit(0.3, "npc"))),
+                        t=7, l=5, b=7, r=9, name = paste(runif(1)))
 ## add disperser sensitivity label
 z.uni <- gtable_add_grob(z.uni,
-                         list(rectGrob(gp = gpar(fill='grey', col=NA, lwd=0.2)),
-                              textGrob("Disperser sensitivity", rot = -90,
-                                       gp = gpar(fontsize=12))),
-                         t=8, l=9, b=10, r=9, name = paste(runif(2)))
+                         list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
+                              textGrob("Disperser sensitivity (HSD)", rot = -90,
+                                       gp = gpar(fontsize=10))),
+                         t=8, l=12, b=14, r=12, name = paste(runif(2)))
+
+z.uni <- gtable_add_grob(z.uni,
+                        linesGrob(x=rep(0.7, 9), y=seq(0.1, 0.9, 0.1), 
+                                  arrow=arrow(length=unit(0.2, "npc"))),
+                        t=8, l=11, b=14, r=10, name = paste(runif(1)))
 
 ggdraw(z.uni)
 
@@ -1096,19 +1123,19 @@ ggdraw(z.uni)
 ## commented out to prevent mistakes
 
 if(clusterNiter >= 999){
-  png(file='../../huntingpaper/figures/Figure2_uni.png', width=6, height=4, units='in', res=600)
+  png(file='../../huntingpaper/JEcol/figures/revision/Figure1_uni.png', width=6, height=4, units='in', res=600)
   ggdraw(z.uni)
   dev.off()
   
-  pdf(file='../../huntingpaper/figures/Figure2_uni.pdf', width=6, height=4)
+  pdf(file='../../huntingpaper/JEcol/figures/revision/Figure1_uni.pdf', width=6, height=4)
   ggdraw(z.uni)
   dev.off()
   
-  png(file='../../huntingpaper/figures/Figure3_bi.png', width=6, height=4, units='in', res=600)
+  png(file='../../huntingpaper/JEcol/figures/revision/Figure3_bi.png', width=6, height=4, units='in', res=600)
   ggdraw(z.bi)
   dev.off()
   
-  pdf(file='../../huntingpaper/figures/Figure3_bi.pdf', width=6, height=4)
+  pdf(file='../../huntingpaper/JEcol/figures/revision/Figure3_bi.pdf', width=6, height=4)
   ggdraw(z.bi)
   dev.off()
   

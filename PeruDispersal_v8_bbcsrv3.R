@@ -59,10 +59,6 @@ intMod.uni <- lmeHyperframe(hyperdat.uni.sel.c, 0:rmax,
                          computeK=FALSE)
 
 
-## RHS of model formula
-allform <- update(formula(intMod.uni[[1]]), NULL~.)
-## Make model matrix
-modmat.int <-  model.matrix(allform, data=preddat.int)
 
 preddat.int <-  expand.grid(stage=levels(hyperdat.uni.sel.c$stage), 
                             huntpres=quantile(sitedat$huntpres, seq(0, 1, 0.25)),

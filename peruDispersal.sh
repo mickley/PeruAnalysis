@@ -46,5 +46,5 @@ abiotic=${abiotic:-1}
 
 echo 'number of cpus requested = ' $nclust
 
-R CMD BATCH ~/Peru/July2016/PeruAnalysis/PeruDispersal_v7_bbcsrv3.R ~/Peru/July2016/progreports/perudisp\_v7\_niter$nsim\_rmax$rmax\_abiotic$abiotic.Rout
+R CMD BATCH ~/Peru/July2016/PeruAnalysis/PeruDispersal_v8_bbcsrv3.R ~/Peru/July2016/progreports/perudisp\_v8\_niter$nsim\_rmax$rmax\_abiotic$abiotic.Rout
 

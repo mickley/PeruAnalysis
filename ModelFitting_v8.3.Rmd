@@ -1,0 +1,1124 @@
+---
+title: "Analysis of hunting effects on spatial structure of trees with different dispersers"
+subtitle: "Model fitting"
+author: "Robert Bagchi"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+
+```{r global_options, include=FALSE}
+options(width=80, digits=3)
+library(printr)
+```
+
+## 1. Preliminaries
+
+### 1.1 Loading and installing libraries
+
+If you need to install the `ReplicatedPointPatterns` package, you can execute the following code. Note, you need the `devtools` package installed. To excute the code below, set 'eval=TRUE'
+'
+```{r package_install, eval=FALSE}
+##devtools::install_github('BagchiLab/RSPPlme4')
+```
+
+
+We can then load all the necessary libraries.
+
+```{r loadlibs, warning=FALSE, message=FALSE}
+rm(list=ls())
+# data organisation
+library(abind)
+library(reshape)
+library(tidyr)
+library(dplyr)
+library(broom)
+
+## spatial analysis
+library(spatstat)
+##library(ReplicatedPointPatterns)
+library(RSPPlme4)
+
+## plotting
+library(ggplot2)
+library(cowplot)
+library(grid)
+library(gtable)
+library(ggrepel)
+library(ggthemes)
+library(RColorBrewer)
+```
+
+
+### 1.2 Define some useful functions for this analysis
+
+* Function that standardises a vector (standardise)
+* Function to convert K functions to L functions (K2L)
+* Function that takes the output from the model and puts it in a convenient format for plotting (kfunclme2plot)
+* Function that plots the BLUEs against distance (plot.kfunctionlme)
+* Function that plots the coefficient and confidence intervals from a bootstrap (effectplot.Kfunctionlme)
+* Function to extract random effect BLUPs to allow plotting (extractModRanefs)
+* Function to extract residuals and covariates for plotting (plotModResids)
+
+```{r convenienceFuncs}
+##source("PeruConvenienceFunctions.R")
+source("../PeruAnalysis/PeruConvenienceFunctions_klmer.R")
+```
+
+
+### 1.3 ggplot theme for paper
+```{r ggthemedef}
+theme_cust <- theme(axis.text = element_text(size=7),
+                    axis.title.y=element_text(size=10),
+                    plot.margin=unit(c(0.5, 0.3, 0.5, 0 ),  'lines'),
+                    strip.text=element_text(size=8),
+                    strip.text.y=element_text(angle=0),
+                    strip.background =element_rect(fill="white", colour="NA"), 
+                    panel.grid.major=element_blank(),
+                    panel.grid.minor=element_blank(),
+                    legend.text=element_text(size=8),
+                    legend.title=element_text(size=10))
+```
+
+### 1.4 Load the pre-pr ocessed data
+
+We load the data that have been processed in another script. These same data can also be used on the cluster for more extensive simulations.
+
+```{r loaddata}
+load(file='../data/data4peruanalysis_v8.3_2class.RData')
+
+## remove species with unknown or abiotic dispersal
+hyperdat.bi.sel.c <- subset(hyperdat.bi.sel, Unkwn !=1 & Abiotic !=1) ## Bivariate
+hyperdat.uni.sel.c <- subset(hyperdat.uni.sel, Unkwn !=1 & Abiotic !=1) ## Univariate
+
+```
+
+Set number of iterations for bootstrapping - keep small for trials (takes a long time). The code was run on a HPC for paper
+```{r setpars}
+nsim <- 999
+rmax ## double check  value set in previous code
+dbhlabs <- c("<1", "1-2", "1-4")[1:(length(sizeclasses)-1)]
+distlist <- list(1:15, 1:5, 6:10, 11:15) ## distances to test hypotheses at
+```
+
+
+## 2 Sapling only analysis (for hypothesis 1)
+
+### 2.1 Subset the data
+
+The first part of the analysis only uses the sapling data because the first hypothesis (hunting should increase clustering of large-vertebrate species) should be more apparent in saplings. We first subset the data, and then fit the models. The first model (univariate) looks at sapling neighbours around saplings, the second (bivariate) looks at adult neighbours around saplings.
+
+```{r subsetsaplings}
+## First sapling only models
+hyperdat.uni.sap <- subset(hyperdat.uni.sel.c, stage=='dbh_0')
+hyperdat.bi.sap <- subset(hyperdat.bi.sel.c, stage=='dbh_0')
+
+## Then juvenile-only models
+hyperdat.uni.juv <- subset(hyperdat.uni.sel.c, stage=='dbh_1')
+hyperdat.bi.juv <- subset(hyperdat.bi.sel.c, stage=='dbh_1')
+
+
+```
+
+```{r removeoutliers}
+
+hyperdat.uni.sap.c <- hyperdat.uni.sap
+
+hyperdat.uni.sap.c <- subset(hyperdat.uni.sap,
+                           !(pname=="BM" & sp.id %in% c(585, 307, 562, 562, 736) |
+                               pname == "CC1" & sp.id %in% c(559) |
+                               pname=="LA" & sp.id %in% c(561, 749, 764) |
+                               pname=="RA" & sp.id %in% c(426, 446) |
+                               pname=="TRC" & sp.id %in% c(609, 411, 562)
+                           )
+)
+
+hyperdat.bi.sap.c <- hyperdat.bi.sap
+hyperdat.bi.sap.c <- subset(hyperdat.bi.sap,
+                            !(pname=="BM" & sp.id %in% c(491, 562) |
+                                pname=="CC2" & sp.id %in% c(370, 563) |
+                                pname == "LA" & sp.id %in% c(735, 379) |
+                                pname == "RA" & sp.id %in% c(552, 293) |
+                                pname == "TRC" & sp.id %in% c(472))
+)
+```
+
+### 2.2 Univariate sapling-only models
+
+#### 2.2.1 Fit model
+
+We start off with an analysis of recruit-recruit spatail structure
+
+We first fit the model.
+
+```{r unimodel}
+## fit the model
+sapMod.uni <- klmerHyper(K~huntpres*HSD + (1|site),  hyper= hyperdat.uni.sap.c, 
+                weights=wts, r= 0:rmax, correction="border")
+print(sapMod.uni)
+```
+
+
+```{r juvunimodel}
+## fit the model
+juvMod.uni <- klmerHyper(K~huntpres*HSD + (1|site),  hyper= hyperdat.uni.juv, 
+                weights=wts, r= 0:rmax, correction="border")
+print(juvMod.uni)
+```
+
+#### 2.2.2 Model diagnostics
+
+Then we can look at some of the diagnostics using the functions defined in the sourced file, "PeruConvenienceFunctions.R".
+
+```{r diagnostics_sapmoduni, fig.height=8}
+## Residuals
+resids.uni <- extractModResids(sapMod.uni) 
+
+## add data on species names
+resids.uni$species <- rep(hyperdat.uni.sap.c$Spp,length(sapMod.uni))
+resids.uni$sp.id <- rep(hyperdat.uni.sap.c$sp.id, length(sapMod.uni))
+resids.uni$N1 <- rep(hyperdat.uni.sap.c$N1, length(sapMod.uni))
+
+## residual K-functions - with species labels to idenify outliers
+ggplot(data=resids.uni, aes(x=distance, y=resid, colour=HSD, alpha=N1, group=species)) +
+  geom_line() +
+  geom_label(data=subset(resids.uni, distance ==13), 
+             aes(label=paste(sp.id, species), x=distance, y=resid), 
+             size=3) +
+  facet_wrap(~site) + 
+  theme_bw()
+
+```
+ 
+
+These species are generally relatively rare at the sites where they are outliers (see the N1 column), so probably have little effect on the analyisis. 
+
+#### 2.2.3 Calculate confidence intervals
+
+```{r unimodel_confints, warning=FALSE}
+## First make the model matrix
+preddat.sap <-  expand.grid(stage=c('S'),
+                            huntpres= round(quantile(sitedat$huntpres, seq(0, 1, 0.25)), 1),
+                            HSD = seq(0, 1, 0.25))
+
+sapform <- update(formula(sapMod.uni[[1]], fixed.only=T), NULL~.) ## extract formula (and remove lhs)
+modmat.sap <-  model.matrix(sapform, data=preddat.sap) ## make model matrix
+
+sapMod.uni_ci <- confint(sapMod.uni, lin_comb=modmat.sap, nboot=nsim, 
+                         level=0.95, ncore=7, iseed=1234)
+plot(sapMod.uni_ci)
+
+save(sapMod.uni_ci, file="../results/v8.0/sapModuni.RData")
+##load("../results/v8.0/sapModuni.RData")
+```
+
+
+### 2.3 Bivariate sapling only models
+Next we analyse the adult-recruit distances.
+
+#### 2.3.1 Model fitting
+
+Once again, we first have to fit the model.
+
+```{r bimodel}
+## fit the model
+summary(hyperdat.bi.sap.c)
+sapMod.bi <- klmerHyper(K~huntpres*HSD + (1|site), hyper=hyperdat.bi.sap.c,
+                        weights=wts, r=0:rmax, correction="border")
+plot(sapMod.bi)
+```
+
+```{r juvbimodel}
+## fit the model
+juvMod.bi <- klmerHyper(K~huntpres*HSD + (1|site), hyper=hyperdat.bi.juv,
+                        weights=wts, r=0:rmax, correction="border")
+plot(juvMod.bi)
+```
+
+
+#### 2.3.2 model diagnostics
+Then we can look at some of the diagnostics.
+
+```{r diagnostics_sapmodbi, fig.height=8}
+
+resids.bi <- extractModResids(sapMod.bi)
+## add data on species names
+resids.bi$species <- rep(hyperdat.bi.sap.c$Spp, 15)
+resids.bi$sp.id <- rep(hyperdat.bi.sap.c$sp.id, 15)
+resids.bi$N <- rep(sqrt(hyperdat.bi.sap.c$N1*hyperdat.bi.sap.c$N2), 15)
+
+## plotting the residuals with labels to identify the outliers.
+ggplot(data=resids.bi, aes(x=distance, y=resid, colour=HSD, group=species)) +
+  geom_line() +
+  geom_label(data=subset(resids.bi, distance ==15), 
+             aes(label=paste(sp.id, species), x=distance, y=resid), size=3) +
+  facet_wrap(~site) + 
+   theme_bw()
+
+```
+
+
+#### 2.3.3 Estimating the confidence intervals
+
+```{r bimodel_confints, warning=FALSE}
+## Can use the model matrix from the univariate analysis
+## Bootstrapping
+sapMod.bi_ci <-  confint(sapMod.bi, lin_comb=modmat.sap, nboot=nsim,
+                                       level=0.95, ncore=7, iseed=1234)
+plot(sapMod.bi_ci)
+
+save(sapMod.bi_ci, file= "../results/v8.0/sapModbi.RData")
+##load("../results/v8.0/sapModbi.RData")
+```
+
+### 2.5 Examining coefficients of models
+
+We can plot the coefficients from the models and their confidence intervals using functions defined in the convenience functions code side by side with.
+
+```{r exploring_sapling_model_results}
+plot_grid(plot(sapMod.uni_ci),
+          plot(sapMod.bi_ci), 
+          labels=c('Univariate', 'Bivariate'), ncol=1)
+```
+
+These plots suggest that
+1. in the univariate analysis
+a. within cohort clustering increases with disperser sensitivity
+b. there is an interaction between huning and HSD so Clustering increases faster with HSD in hunted forests
+
+2. In the bivariate analysis 
+a. there is more clustering among high HSD species
+b. None of the other predictors seem to explain much variation in clustering.
+
+
+### 2.6 Formal tests of Hypothesis 1
+
+We can use an Anova type analysis
+
+```{r H1hypothesistests, warning=FALSE}
+## Get Ns
+lme4::getME(sapMod.uni[[1]], "devcomp")$dims[c("N", "q")]
+lme4::getME(sapMod.bi[[1]], "devcomp")$dims[c("N", "q")]
+
+
+## main effects model
+sapMod.uni.1way <- klmerHyper(K~huntpres + HSD + (1|site), hyper=hyperdat.uni.sap.c, 
+                               weights=wts, r=0:rmax, correction="border")
+
+
+aov.hp_sapuni <- anova(sapMod.uni.1way, term="huntpres", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+aov.hsd_sapuni <- anova(sapMod.uni.1way, term="HSD", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+aov.hp_hsd_sapuni <- anova(sapMod.uni, term="huntpres:HSD", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+
+sapMod.uni.aov <-  list(hunt=aov.hp_sapuni, HSD=aov.hsd_sapuni, "hunt:HSD" = aov.hp_hsd_sapuni)
+save(sapMod.uni.aov, file = "../results/v8.0/aov_sapModuni.RData")
+
+sapMod.bi.1way <- klmerHyper(K~huntpres + HSD + (1|site), hyper=hyperdat.bi.sap.c, 
+                               weights=wts, r=0:rmax, correction="border")
+
+aov.hp_sapbi <- anova(sapMod.bi.1way, term="huntpres", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+aov.hsd_sapbi <- anova(sapMod.bi.1way, term="HSD", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+aov.hp_hsd_sapbi <- anova(sapMod.bi, term="huntpres:HSD", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+sapMod.bi.aov <-  list(hunt=aov.hp_sapbi, HSD=aov.hsd_sapbi, "hunt:HSD" = aov.hp_hsd_sapbi)
+save(sapMod.bi.aov, file = "../results/v8.0/aov_sapModbi.RData")
+##load("../results/v8.0/aov_sapModuni.RData")
+##load("../results/v8.0/aov_sapModbi.RData")
+```
+
+Now let us look at the results
+
+```{r viewSapAnovas}
+## univariate model
+do.call('cbind', lapply(1:4, function(i)
+  t(sapply(sapMod.uni.aov, function(x) x$T[[i]]$stat))))
+
+## Bivariate model
+do.call('cbind', lapply(1:4, function(i)
+  t(sapply(sapMod.bi.aov, function(x) x$T[[i]]$stat))))
+
+```
+
+Prety clear pattern that hunting increases clustering among high HSD saplings.
+
+Additionally, worth checking juveniles on their own (do the patterns persist into larger size-classes)
+
+```{r juvonlymodeltests, warning=FALSE}
+## Get Ns
+
+## main effects model
+juvMod.uni.1way <- klmerHyper(K~huntpres + HSD + (1|site), hyper=hyperdat.uni.juv, 
+                               weights=wts, r=0:rmax, correction="border")
+
+
+aov.hp_juvuni <- anova(juvMod.uni.1way, term="huntpres", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+aov.hsd_juvuni <- anova(juvMod.uni.1way, term="HSD", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+aov.hp_hsd_juvuni <- anova(juvMod.uni, term="huntpres:HSD", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+
+juvMod.uni.aov <-  list(hunt=aov.hp_juvuni, HSD=aov.hsd_juvuni, "hunt:HSD" = aov.hp_hsd_juvuni)
+
+save(juvMod.uni.aov, file = "../results/v8.0/aov_juvModuni.RData")
+
+
+## main effects model
+juvMod.bi.1way <- klmerHyper(K~huntpres + HSD + (1|site), hyper=hyperdat.bi.juv, 
+                               weights=wts, r=0:rmax, correction="border")
+
+
+aov.hp_juvbi <- anova(juvMod.bi.1way, term="huntpres", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+aov.hsd_juvbi <- anova(juvMod.bi.1way, term="HSD", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+aov.hp_hsd_juvbi <- anova(juvMod.bi, term="huntpres:HSD", dists=distlist, 
+                nboot=nsim, ncore=7, iseed=1234)
+
+
+juvMod.bi.aov <-  list(hunt=aov.hp_juvbi, 
+                       HSD=aov.hsd_juvbi, 
+                       "hunt:HSD" = aov.hp_hsd_juvbi)
+
+## univariate model
+do.call('cbind', lapply(1:4, function(i)
+  t(sapply(juvMod.uni.aov, function(x) x$T[[i]]$stat))))
+
+## bivariate model
+do.call('cbind', lapply(1:4, function(i)
+  t(sapply(juvMod.bi.aov, function(x) x$T[[i]]$stat))))
+
+```
+
+## 3 Changes between saplings and juveniles (Hypotheses 2 & 3)
+
+
+### 3.1 Univariate model
+
+#### 3.1.1 Fit univariate model
+
+
+```{r univariate_intMod}
+hyperdat.uni.sel.c <- subset(hyperdat.uni.sel.c,
+                             !(
+                               site == "BM" & sp.id %in% c(736, 724, 562, 569) |
+                                 site == "LA" & sp.id == 764 |
+                                 site == "RA" & sp.id == 446 |
+                                 site == "TRC" & sp.id %in% c(609, 411, 562)
+                             ))
+
+## Full model with Juveniles and saplings (pair2)
+##hyperdat.uni.sel.c$stage <- factor(hyperdat.uni.sel.c$stage, ordered=FALSE)
+intMod.uni <- klmerHyper(K~stage*huntpres*HSD + (1|site/Spp), hyper = hyperdat.uni.sel.c, 
+                          weights=wts, r=0:rmax, correction="border", na.action="na.omit")
+
+plot(intMod.uni)
+```
+
+
+#### 3.1.2 Model diagnostics
+Checking the model diagnostics
+
+```{r univarIntDiag}
+resids.uni <- extractModResids(intMod.uni)
+
+## add data on species names
+resids.uni$species <- rep(hyperdat.uni.sel.c$Spp, 15)
+resids.uni$sp.id <- rep(hyperdat.uni.sel.c$sp.id, 15)
+resids.uni$N1 <- rep(hyperdat.uni.sel.c$N1, 15)
+## No particular trends
+
+resids.uni %>% ggplot(aes(x=huntpres, y=resid, colour=HSD)) +
+   facet_wrap(~distance) + 
+   geom_point() + geom_smooth(method='gam', method.args=list(k=4)) +
+   theme_bw()
+
+resids.uni %>% ggplot(aes(x=HSD, y=resid, colour=huntpres)) +
+   facet_wrap(~distance, scale='free') +
+   geom_jitter(aes(alpha=N1)) + geom_smooth(method='gam', method.args=list(k=4)) +
+   theme_bw()
+## some larger outliers at the high HSD end - but they appear to be species with
+## low weight, so not problematic 
+
+ggplot(data=resids.uni, aes(x=distance, y=resid, colour=HSD, group=species)) +
+       geom_line(aes(alpha=N1)) +
+   geom_label(data=subset(resids.uni, distance ==13), 
+                                  aes(label=paste(sp.id, species), x=distance, y=resid), size=3) +
+  facet_grid(site~stage) + 
+   theme_bw()
+## yeah, there are some outliers, but none of them are particularly abundant
+```
+
+### 3.2 Bivariate Model
+#### 3.2.1 Fit bivariate model
+
+```{r bivariate_intModel}
+hyperdat.bi.sel.c <- subset(hyperdat.bi.sel.c, 
+                             !(
+                               site == "BM" & sp.id %in% c(562) | 
+                               site == "LA" & sp.id %in% c(379, 376, 612, 735) |
+                                 site == "CashuTr12"& sp.id %in% c(635, 563) |
+                                 site == "CashuTr3" & sp.id %in% c(708, 562) | 
+                                 site == "RA" & sp.id %in% c(552, 293)
+                               )) 
+
+
+## Full models with Juveniles and saplings (pair2)
+intMod.bi <- klmerHyper(K~stage*huntpres*HSD + (1|site/Spp), hyper=hyperdat.bi.sel.c,
+                         weights=wts, r=0:rmax, correction="border") 
+plot(intMod.bi)         
+```
+
+#### 3.2.2 Model diagnostics
+
+Checking the model diagnostics for the interactive bivariate model
+
+```{r fullmodeldiagnostics_bi}
+resids.bi <- extractModResids(intMod.bi)
+
+## add data on species names
+resids.bi$species <- rep(hyperdat.bi.sel.c$Spp, 15)
+resids.bi$sp.id <- rep(hyperdat.bi.sel.c$sp.id, 15)
+resids.bi$N1 <- rep(hyperdat.bi.sel.c$N1, 15)
+resids.bi$N2 <- rep(hyperdat.bi.sel.c$N2, 15)
+
+
+resids.bi %>% ggplot(aes(x=huntpres, y=resid, colour=HSD)) +
+   facet_wrap(~distance) + 
+   geom_point() + geom_smooth(method='gam', method.args=list(k=4)) +
+   theme_bw()
+
+resids.bi %>% ggplot(aes(x=HSD, y=resid, colour=huntpres)) +
+   facet_wrap(~distance, scale='free') +
+   geom_point() + geom_smooth(method='gam', method.args=list(k=4)) +
+   theme_bw()
+
+ggplot(data=resids.bi, aes(x=distance, y=resid, colour=HSD, group=species, alpha=sqrt(N1*N2))) +
+       geom_line() +
+   geom_label(data=subset(resids.bi, distance ==15), 
+                                  aes(label=paste(sp.id, species), x=distance, y=resid), size=3) +
+  facet_grid(site~stage) + 
+   theme_bw()
+
+```
+
+
+### 3.4 Interactive model confidence intervals
+
+```{r fullmodelboot, warning=FALSE}
+## construct data to make predictions for figures with
+preddat.int <-  expand.grid(stage=levels(hyperdat.uni.sel.c$stage), 
+                            huntpres=round(quantile(sitedat$huntpres, seq(0, 1, 0.25)), 1),
+                            HSD = seq(0, 1, 0.25))
+## RHS of model formula
+allform <- update(formula(intMod.uni[[1]], fixed.only=TRUE), NULL~.)
+
+## Make model matrix
+modmat.int <-  model.matrix(allform, data=preddat.int)
+
+## Bootstrapping
+## Univariate
+system.time(intMod.uni_ci <-  confint(intMod.uni, lin_comb =modmat.int, nboot=nsim,
+                                       level=0.95, ncore=7, iseed=1234))
+
+## bivariate
+system.time(intMod.bi_ci <-  confint(intMod.bi, lin_comb =modmat.int, nboot=nsim,
+                                       level=0.95, ncore=7, iseed=1234))
+
+##save(intMod.uni_ci, file="../results/v8.0/intModUni.RData")
+# load(file="../results/v8.0/intModUni.RData")
+
+plot(intMod.uni_ci)
+##save(intMod.bi_ci, file="../results/v8.0/intModBi.RData")
+#load(file="../results/v8.0/intModBi.RData")
+## plot them both 
+plot(intMod.uni_ci)
+plot(intMod.bi_ci)
+
+```
+
+
+
+### 3.5 Formal tests of hypotheses 2 and 3
+
+### 3.5.1 Univariate
+
+The formal anova tests of the full model are very time consuming. It is better to do this on a cluster. First we look at the univariate case
+
+```{r intmodel_anova_uni, warning=FALSE}
+## Main effects model
+intMod.uni.1way <- klmerHyper(K~stage + huntpres + HSD + (1|site/Spp), 
+                            hyper=hyperdat.uni.sel.c, weights=wts, 
+                            r=0:rmax, correction="border")
+
+## 2 way interaction model
+intMod.uni.2way <- klmerHyper(K~(stage + huntpres + HSD)^2 + (1|site/Spp), 
+                            hyper=hyperdat.uni.sel.c, weights=wts, 
+                            r=0:rmax, correction="border")
+modmat.int2way <-  model.matrix(update(formula(intMod.uni.2way[[1]], fixed.only=TRUE), 
+                                       NULL~.), data=preddat.int)
+
+
+## Test main effects
+anova.int.uni.1way  <- sapply(c('stage', 'huntpres', 'HSD'), function(term)
+{
+  print(term)
+  anova(intMod.uni.1way, term=term,
+        dists=distlist, nboot=nsim, ncore=7, iseed=1234)
+}, simplify=FALSE)
+
+## test 2 way interactions
+anova.int.uni.2way  <- sapply(c('stage:huntpres', 'stage:HSD', 'huntpres:HSD'), function(term)
+{
+  print(term)
+  anova(intMod.uni.2way, term=term,
+        dists=distlist, nboot=nsim, ncore=7, iseed=1234)
+}, simplify=FALSE)
+
+## Test 3- way interaction
+## 3-way interaction
+anova.int.uni.3way <-
+  anova(intMod.uni, term="stage:huntpres:HSD",
+        dists=distlist, nboot=nsim, ncore=7, iseed=1234)
+## Put them all together in an easily read table
+intMod.uni.aov <- c(anova.int.uni.1way, anova.int.uni.2way, "stage:huntpres:HSD" = list(anova.int.uni.3way))
+
+##save(intMod.uni.aov, file="../results/v8.0/aov_intModuni.RData")
+
+##load("../results/v8.0/aov_intModuni.RData")
+
+(anovatable.int.uni <- do.call('cbind', lapply(1:4, function(i)
+  t(sapply(intMod.uni.aov, function(x) x$T[[i]]$stat)))))
+
+```
+
+### 3.5.2 Bivariate
+
+Then we look at the bivariate case
+```{r intmodel_anova_bi, warning=FALSE}
+## Main effects
+intMod.bi.1way <- klmerHyper(K~stage + huntpres + HSD + (1|site/Spp), 
+                            hyper=hyperdat.bi.sel.c, weights=wts, 
+                            r=0:rmax, correction="border")
+
+## 2 way interactions model
+intMod.bi.2way <- klmerHyper(K~(stage + huntpres + HSD)^2 + (1|site/Spp), 
+                            hyper=hyperdat.bi.sel.c, weights=wts, 
+                            r=0:rmax, correction="border")
+
+anova.int.bi.1way  <- sapply(c('stage', 'huntpres', 'HSD'), function(term)
+{
+  print(term)
+  anova(intMod.bi.1way, term=term,
+        dists=distlist, nboot=nsim, ncore=7, maxit=50, iseed=1234)
+}, simplify=FALSE)
+
+anova.int.bi.2way  <- sapply(c('stage:huntpres', 'stage:HSD', 'huntpres:HSD'), function(term)
+{
+  print(term)
+  anova(intMod.bi.2way, term=term, dists=distlist, nboot=nsim, ncore=7, maxit=50, iseed=1234)
+}, simplify=FALSE)
+
+## 3-way interaction
+anova.int.bi.3way <-  anova(intMod.bi, term="stage:huntpres:HSD",
+        dists=distlist, nboot=nsim, ncore=7, iseed=1234, maxit=50)
+
+
+intMod.bi.aov <- c(anova.int.bi.1way, anova.int.bi.2way, "stage:huntpres:HSD" = list(anova.int.bi.3way))
+
+save(intMod.bi.aov, file="../results/v8.0/aov_intModbi.RData")
+
+
+anovatable.int.bi <- do.call('cbind', sapply(1:4, function(i, d)
+  {
+    tab <- rbind(t(sapply(anova.int.bi.1way, function(x) x$T[[i]]$stat)),
+                 t(sapply(anova.int.bi.2way, function(x) x$T[[i]]$stat)),
+                 t(anova.int.bi.3way$T[[i]]$stat))
+    rownames(tab)[7] <- "stage:huntpres:HSD"
+    colnames(tab) <- paste0(colnames(tab), " (", 
+                            paste(range(d[[i]]), collapse=":"), ")")
+    return(tab)
+    
+}, d=distlist, simplify=FALSE))
+
+anovatable.int.bi
+# 
+```
+
+## 4 Plots
+
+```{r fullmodelplotting}
+################################################################################
+## extract predictions and cis from model output
+int.bi.plotdat <- klmerci2plot(intMod.bi_ci, preddat=preddat.int)
+int.uni.plotdat <- klmerci2plot(intMod.uni_ci, preddat=preddat.int)
+
+names(int.bi.plotdat)[5:7] <- paste(names(int.bi.plotdat)[5:7], 'bi', sep='.')
+names(int.uni.plotdat)[5:7] <- paste(names(int.uni.plotdat)[5:7], 'uni', sep='.')
+## Combine within and between cohort results
+int.plotdat <- full_join(int.uni.plotdat, int.bi.plotdat, 
+                     by=c('distance', 'stage','huntpres', 'HSD'), suffix=c('.uni', ".bi"))
+
+## More reader friendly labels
+
+
+int.plotdat$stage <- factor(int.plotdat$stage, 
+                            labels=dbhlabs)
+int.plotdat$huntpres <-  round(int.plotdat$huntpres, 1)
+
+# int.plotdat$huntpres <-  factor(int.plotdat$huntpres, labels=c('Low', 'High'))
+# int.plotdat$HSD <-  factor(int.plotdat$HSD, labels=c('Insensitive', 'Sensitive'))
+
+## stat = identity hardwires the order - fixing so that isn't a problem
+int.plotdat <- int.plotdat[order(int.plotdat$distance),]
+
+int.plotdat <- subset(int.plotdat, huntpres %in% c(-3.9, -0.4, 2.4) & HSD %in% c(0, 0.5, 1))
+
+## Make plots
+pl.int.bi <-
+    ggplot(int.plotdat, aes(x=distance, y=est.bi, ymin=lcl_pred.bi, ymax=ucl_pred.bi,
+                    colour=stage, fill=stage)) +
+    geom_ribbon(alpha=0.5, colour=NA) +  geom_line() +
+    facet_grid(HSD~  huntpres, as.table=FALSE) +
+    geom_abline(intercept=0, slope=0, linetype='dashed', col='grey') +
+    theme_tufte() + theme_cust + 
+    scale_x_continuous(limits=c(0, 15)) +
+    scale_color_brewer(palette='Set1')+ scale_fill_brewer(palette='Pastel1') +
+      
+    labs(x='Distance, r, (m)',
+         y=expression(paste('[', (hat(K)(r)[con]-hat(K)(r)[het]), ']')),
+        color='Cohort  (cm dbh)', fill='Cohort  (cm dbh)')
+
+pl.int.uni <- 
+  ggplot(int.plotdat, aes(x=distance, y=est.uni, ymin=lcl_pred.uni, ymax=ucl_pred.uni,
+             colour=stage, fill=stage, group=stage)) +
+  geom_ribbon(alpha=0.5, colour=NA) +  geom_line() +
+  facet_grid(HSD~  huntpres, as.table=FALSE) +
+  geom_abline(intercept=0, slope=0, linetype='dashed', col='grey') +
+  theme_tufte() + theme_cust +
+  scale_x_continuous(limits=c(0, 15)) +
+  scale_color_brewer(palette='Set1')+ scale_fill_brewer(palette='Pastel1') +
+  labs(x='Distance, r, (m)',
+       y=expression(paste('[', (hat(K)(r)[con]-hat(K)(r)[het]), ']')),
+         color='Cohort (cm dbh)', fill='Cohort (cm dbh)')
+
+## Format figures (2 and 3)
+z.bi <- ggplot_gtable(ggplot_build(pl.int.bi))
+
+
+##gtable_show_layout(z.bi)
+## add a label at the top and side
+z.bi <- gtable_add_rows(z.bi, height=unit(z.bi$heights[[6]], 'cm'), pos=5)
+z.bi <- gtable_add_rows(z.bi, height=unit(z.bi$heights[[6]], 'cm'), pos=5)
+z.bi <- gtable_add_cols(z.bi, width=unit(z.bi$widths[[9]], 'cm'), pos=9)
+z.bi <- gtable_add_cols(z.bi, width=unit(z.bi$widths[[9]], 'cm'), pos=9)
+z.bi <- gtable_add_cols(z.bi, width=z.bi$widths[[2]], pos=1)
+
+z.bi <- gtable_add_grob(z.bi,
+                     list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
+                          textGrob("Relative conspecific clustering", rot = 90,
+                                   gp = gpar(fontsize=10, fontfamily="serif"))),
+                     t=8, l=2, b=14, r=2, name = paste(runif(2)))
+
+
+z.bi <- gtable_add_grob(z.bi,
+                     list(rectGrob(gp=gpar(fill=NA, col=NA, lwd=0)),
+                          textGrob("Defaunation Index (DI)",
+                                   gp = gpar(fontsize=10, fontfamily="serif"))),
+                     t=6, l=5, b=6, r=9, name = paste(runif(2)))
+
+z.bi <- gtable_add_grob(z.bi,
+                        linesGrob(x=seq(0.1, 0.9, 0.1), y=rep(0.7, 9),
+                                  arrow=arrow(angle=30, length=unit(0.3, "npc"))),
+                        t=7, l=5, b=7, r=9, name = paste(runif(1)))
+
+z.bi <- gtable_add_grob(z.bi,
+                        list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
+                             textGrob("Reliance on hunted dispersers (RHD)", rot = -90,
+                                      gp = gpar(fontsize=10, fontfamily="serif"))),
+                        t=8, l=12, b=14, r=12, name = paste(runif(2)))
+
+z.bi <- gtable_add_grob(z.bi,
+                        linesGrob(x=rep(0.7, 9), y=seq(0.1, 0.9, 0.1), 
+                                  arrow=arrow(length=unit(0.2, "npc"))),
+                        t=8, l=11, b=14, r=10, name = paste(runif(1)))
+
+ggdraw(z.bi)
+
+
+## Univariate plot
+z.uni <- ggplot_gtable(ggplot_build(pl.int.uni))
+##gtable_show_layout(z.uni)
+
+## add labels at the top and side
+z.uni <- gtable_add_rows(z.uni, height=unit(z.uni$heights[[6]], 'cm'),  pos=5) ## top arrow
+z.uni <- gtable_add_rows(z.uni, height=unit(z.uni$heights[[6]], 'cm'),  pos=5) ## top label
+z.uni <- gtable_add_cols(z.uni, width=unit(z.uni$widths[[9]], 'cm'), pos=9) # right label
+z.uni <- gtable_add_cols(z.uni, width=unit(z.uni$widths[[9]], 'cm'), pos=9) # Right arrow
+z.uni <- gtable_add_cols(z.uni, width=z.uni$widths[[2]], pos=1) ## outer left Y axis
+
+z.uni <- gtable_add_grob(z.uni,
+                     list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
+                          textGrob("Relative  conspecific clustering", rot = 90,
+                                   gp = gpar(fontsize=10, fontfamily="serif"))),
+                     t=8, l=2, b=14, r=2, name = paste(runif(2)))
+## add defaunation label
+z.uni <- gtable_add_grob(z.uni,
+                         list(rectGrob(gp=gpar(fill=NA, col=NA, lwd=0)),
+                              textGrob("Defaunation Index (DI)",
+                                       gp = gpar(fontsize=10, fontfamily="serif"))),
+                         t=6, l=5, b=6, r=9, name = paste(runif(2)))
+
+z.uni <- gtable_add_grob(z.uni,
+                        linesGrob(x=seq(0.1, 0.9, 0.1), y=rep(0.7, 9),
+                                  arrow=arrow(angle=30, length=unit(0.3, "npc"))),
+                        t=7, l=5, b=7, r=9, name = paste(runif(1)))
+## add disperser sensitivity label
+
+z.uni <- gtable_add_grob(z.uni,
+                         list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
+                              textGrob("Reliance on hunted dispersers (RHD)", rot = -90,
+                                       gp = gpar(fontsize=10, fontfamily="serif"))),
+                         t=8, l=12, b=14, r=12, name = paste(runif(2)))
+
+z.uni <- gtable_add_grob(z.uni,
+                        linesGrob(x=rep(0.7, 9), y=seq(0.1, 0.9, 0.1), 
+                                  arrow=arrow(length=unit(0.2, "npc"))),
+                        t=8, l=11, b=14, r=10, name = paste(runif(1)))
+
+ggdraw(z.uni)
+
+```
+```{r exportfigs, evaluate=FALSE}
+## Knitr seems to mess the exports up, so just doing them manually.
+## Do not run this unless you want to change figures (and have done at least 999 iterations
+## commented out to prevent mistakes
+
+if(nsim >= 999){
+  png(file='../../huntingpaper/JEcol/figures/revision/Figure1_uni.png', width=6, height=4, units='in', res=600)
+  ggdraw(z.uni)
+  dev.off()
+  
+  pdf(file='../../huntingpaper/JEcol/figures/revision/Figure1a_uni.pdf', width=6, height=4)
+  ggdraw(z.uni)
+  dev.off()
+  
+  png(file='../../huntingpaper/JEcol/figures/revision/Figure3_bi.png', width=6, height=4, units='in', res=600)
+  ggdraw(z.bi)
+  dev.off()
+  
+  pdf(file='../../huntingpaper/JEcol/figures/revision/Figure3_bi.pdf', width=6, height=4)
+  ggdraw(z.bi)
+  dev.off()
+  
+}
+```
+
+## 5 Ploting of individual species
+
+We can plot the individual K-functions for each species x site combination. First we remove K functions based on < 15 individuals, which are meaningless on their own but can contribute with low weight to an overall analysis. We then need to select species that are represented in both cohorts at at least one hunted and one non-hunted site.
+
+```{r indKfuncs_spsel}
+hyperdat.uni.ind <- subset(hyperdat.uni.sel.c, N1 > 15) ## & stage %in% 
+##                             c("dbh_0", "dbh_1"))
+
+hyperdat.uni.ind$Spp <- droplevels(hyperdat.uni.ind$Spp)
+counts <- table(hyperdat.uni.ind$Spp, hyperdat.uni.ind$site)
+counts <- as.matrix(counts)
+## only include species that are represented in at least 1 hunted and one intact site (note
+# that if a site has a species there will be 3 rows (<1, 1-2 and 2-5 cm dbh)
+counts <- counts[apply(counts, 1, function(x) any(x[c(1, 4, 5)] > 1) & any(x[c(2, 3, 6)] > 1)),]
+sp.keep <- rownames(counts)
+length(sp.keep) ## number of species that qualify
+
+## Pulling out selected species
+hyperdat.uni.ind <- subset(hyperdat.uni.sel.c, Spp %in% sp.keep)
+hyperdat.bi.ind <- subset(hyperdat.bi.sel.c, Spp %in% sp.keep)
+hyperdat.uni.ind <- hyperdat.uni.ind[order(hyperdat.uni.ind$N1),]
+ntotals <- aggregate(N1 ~ Spp, data=subset(hyperdat.uni.sel.c, Spp %in% sp.keep), sum)
+ntotals <- ntotals[rev(order(ntotals$N1)),]
+disptype <- aggregate(HSD ~ Spp, data=hyperdat.uni.ind, mean)
+
+## add dispersal data
+disptype <- merge(disptype, ntotals)
+```
+
+Now we can select the most abundant species and plot them
+
+```{r plot fig2, warning=FALSE}
+## order species by abundance
+disptype <- disptype[order(disptype$N1, decreasing=T),]
+
+## The subsetting in this function which will determine which species are included
+## Including 1:4 so that 4 most abundant species are included
+## If more are included we need to modify the plot code too
+
+## two most abundant species in the high and low disperser sensitivity categories
+sp2plot <- c(as.character(disptype$Spp[disptype$HSD<0.5][1:2]), 
+             as.character(disptype$Spp[disptype$HSD>0.5][1:2]))
+
+ind.funcs <- hyperdat.uni.ind[hyperdat.uni.ind$Spp %in% sp2plot]
+ind.funcs <- ind.funcs[order(ind.funcs$HSD)]
+ind.funcs$Spp <- droplevels(ind.funcs$Spp)
+
+sp.mods <- lapply(split(ind.funcs, f=ind.funcs$Spp), function(sp.dat){
+  sp.mod <- ReplicatedPointPatterns::lmHyperframe(sp.dat, 0:15, "stage*hunted", computeK=FALSE, minsamp=NA)
+  preddat <- expand.grid(stage=levels(sp.dat$stage), hunted=levels(sp.dat$hunted))
+  Xmat <- model.matrix(~stage*hunted, preddat)
+  sp.boot  <- ReplicatedPointPatterns::lm.t.boot(sp.mod,lincomb=Xmat, nsim=nsim, alpha=0.05, simple=FALSE)
+  sp.dat <- with(sp.boot, {
+    data.frame(
+      Spp = unique(sp.dat$Spp),
+      do.call('rbind', replicate(15, preddat, simplify=FALSE)),
+      r=rep(1:15, each=nrow(preddat)),
+      K=(do.call('c', lmKpred)),
+      ucl=do.call('c', upper),
+      lcl=do.call('c', lower)
+    )})
+})
+
+sp.mods <- do.call('rbind', sp.mods)
+sp.mods$hunted <- factor(sp.mods$hunted, levels=c('intact', 'hunted'),
+                           labels=c('3 least hunted sites', '3 most hunted sites'))
+sp.mods$stage <- factor(sp.mods$stage, labels=dbhlabs)
+
+ind.funcs <- do.call('rbind', lapply(1:nrow(ind.funcs), function(i, dat){
+  dat.i <- dat[i,]
+  Ki <- data.frame(dat.i$K)[,c(1,3)]
+  names(Ki) <- c('r', 'K')
+  dat.i <- cbind(as.data.frame(dat.i[, c('stage', 'N1', 'N2', 'Spp', 'site',
+                                         'pname', 'hunted', 'huntpres')]), Ki)
+  return(dat.i)
+}, dat=ind.funcs))
+
+ind.funcs$stage <- factor(ind.funcs$stage, labels=dbhlabs)
+ind.funcs$Spp <-  factor(ind.funcs$Spp, levels=unique(ind.funcs$Spp))
+
+ind.funcs$N <-  ntotals$N1[match(ind.funcs$Spp, ntotals$Spp)]
+ind.funcs$HSD <- disptype$HSD[match(ind.funcs$Spp, disptype$Spp)]
+ind.funcs$splab <- paste(ind.funcs$Spp, ' (n = ', ind.funcs$N, ')', sep='')
+ind.funcs$hunted <- factor(ind.funcs$hunted, levels=c('intact', 'hunted'),
+                           labels=c('3 least hunted sites', '3 most hunted sites'))
+
+ind.funcs$site.lab <- ind.funcs$pname
+ind.funcs$site.lab[ind.funcs$r != 13] <- NA
+```
+
+We can now prepare the plot and customise it to display all the information we need.
+
+```{r spplotcustomise}
+sp.plot  <- ggplot(data=ind.funcs, aes(x=r, y=K)) +
+  geom_ribbon(data=sp.mods, 
+              aes(ymin=lcl, ymax=ucl, colour=NULL, fill=hunted, group=hunted), alpha=0.5) + 
+  geom_line(data=sp.mods, aes(colour=hunted, group=hunted), size=1) + 
+  geom_line(aes(colour=hunted, group=stage:site), linetype='dashed') +  
+  geom_text_repel(aes(label=site.lab, col=hunted), size=2, show.legend=FALSE) + ##,) segment.color=0) +
+  facet_grid(stage~ Spp, scales='free') +
+    scale_colour_brewer(palette='Dark2') +
+  scale_fill_brewer(palette='Pastel2') +
+  ##geom_abline(intercept=0, lty='dashed', col='grey50') +
+  theme_tufte() + theme_cust +  
+  theme(panel.border = element_rect(colour = "grey", fill=NA), 
+         strip.background = element_rect(color = "grey")) +
+  labs(x='Distance, r, (m)', y=expression(hat(K)(r)[con]-hat(K)(r)[het]),
+       colour='Defaunation\nindex (DI)', fill="Defaunation\nindex (DI)")
+
+sp.plot <- 
+  sp.plot + theme(strip.text.x=element_text(size=10, face='italic')) 
+
+
+z.sp <- ggplot_gtable(ggplot_build(sp.plot))
+##gtable_show_layout(z.sp)
+## add a label at the top and side
+
+z.sp <- gtable_add_rows(z.sp, height=z.sp$heights[6], pos=5)
+z.sp <- gtable_add_cols(z.sp, width=z.sp$heights[6], pos=12)
+z.sp <- gtable_add_cols(z.sp, width=z.sp$widths[2], pos=1)
+##sapply(z.test$grobs[grep('strip.absoluteGrob', sapply(z.test$grobs, function(x) x$name))], function(x) x$children[[1]]$gp$fill)
+
+z.sp <- gtable_add_grob(z.sp,
+                     list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
+                          textGrob("Relative conspecific clustering", rot = 90,
+                                   gp = gpar(fontsize=12))),
+                     t=7, l=2, b=6+length(dbhlabs)*2, r=2, name = paste(runif(2)))
+
+z.sp <- gtable_add_grob(z.sp,
+                     list(rectGrob(gp=gpar(fill='grey', col='grey', lwd=0.2)),
+                          textGrob("Dispersers not hunted",
+                                   gp = gpar(fontsize=10))),
+                     t=6, l=5, b=6, r=7, name = paste(runif(2)))
+z.sp <- gtable_add_grob(z.sp,
+                     list(rectGrob(gp=gpar(fill='grey', col='grey', lwd=0.2)),
+                          textGrob("Dispersers hunted",
+                                   gp = gpar(fontsize=10))),
+                     t=6, l=9, b=6, r=11, name = paste(runif(2)))
+
+z.sp <- gtable_add_grob(z.sp,
+                     list(rectGrob(gp = gpar(fill='white', col='white', lwd=0.2)),
+                          textGrob("Cohort (cm dbh)", rot = -90,
+                                   gp = gpar(fontsize=10))),
+                     t=8, l=14, b=12, r=14, name = paste(runif(2)))
+
+ggdraw(z.sp)
+
+pdf('../../huntingpaper/JEcol/figures/revision/Figure2_bysp.pdf', width=8, height=3.5)
+ggdraw(z.sp)
+dev.off()
+
+png('../../huntingpaper/JEcol/figures/revision/Figure2_bysp.png', width=8.3, height=3.7, units='in', res=600)
+ggdraw(z.sp)
+dev.off()
+```
+
+We might also want to repeat for all species to make supplemental figure.
+
+```{r SuppFigspFuncs, warning=FALSE}
+
+ind.funcs.all <- hyperdat.uni.ind
+ind.funcs.all <- ind.funcs.all[order(ind.funcs.all$HSD)]
+ind.funcs.all$Spp <- droplevels(ind.funcs.all$Spp)
+
+ind.funcs.all <- do.call('rbind', lapply(1:nrow(ind.funcs.all), function(i, dat){
+  dat.i <- dat[i,]
+  Ki <- data.frame(dat.i$K)[,c(1,3)]
+  names(Ki) <- c('r', 'K')
+  dat.i <- cbind(as.data.frame(dat.i[, c('stage', 'N1', 'N2', 'Spp', 'site',
+                                         'pname', 'hunted', 'huntpres')]), Ki)
+  return(dat.i)
+}, dat=ind.funcs.all))
+
+ind.funcs.all$stage <- factor(ind.funcs.all$stage, labels=dbhlabs)
+
+##ind.funcs.all$stage <- factor(ind.funcs.all$stage, labels=c('Saplings', 'Juveniles'))
+## order by disperser sensitivity
+ind.funcs.all$Spp <-  droplevels(factor(ind.funcs.all$Spp, levels=disptype$Spp))
+
+# ind.funcs.all$N <-  ntotals$N1[match(ind.funcs.all$Spp, ntotals$Spp)]
+# ind.funcs.all$HSD <- disptype$HSD[match(ind.funcs.all$Spp, disptype$Spp)]
+# ind.funcs.all$splab <- paste(ind.funcs.all$Spp, ' (n = ', ind.funcs.all$N, ')', sep='')
+# ind.funcs.all$hunted <- factor(ind.funcs.all$hunted, levels=c('intact', 'hunted'),
+#                            labels=c('Low', 'High'))
+
+ind.funcs.all$site.lab <- ind.funcs.all$pname
+ind.funcs.all$site.lab[ind.funcs.all$r != 13] <- NA
+
+ind.funcs.all$N <-  ntotals$N1[match(ind.funcs.all$Spp, ntotals$Spp)]
+ind.funcs.all$HSD <- disptype$HSD[match(ind.funcs.all$Spp, disptype$Spp)]
+ind.funcs.all$splab <- paste(ind.funcs.all$Spp, '\n(n = ', ind.funcs.all$N, ')', sep='')
+hsdbysp <- aggregate(HSD ~ splab, data=ind.funcs.all, unique) 
+hsdbysp <- hsdbysp[order(hsdbysp$HSD),]
+ind.funcs.all$splab <- factor(ind.funcs.all$splab, levels=hsdbysp$splab) 
+ind.funcs.all$hunted <- factor(ind.funcs.all$hunted, levels=c('intact', 'hunted'),
+                           labels=c('3 least hunted sites', '3 most hunted sites'))
+
+plotgrps <- list(hsdbysp$splab[1:10], hsdbysp$splab[11:20])
+                 
+sp.plot.all  <- lapply(plotgrps, function(grp) 
+  {
+  
+  ggplot(subset(ind.funcs.all, splab %in% grp), aes(x=r, y=K, colour=hunted, group=stage:site),
+         fill='white')+
+    geom_line() + geom_text_repel(aes(label=site.lab), size=2, show.legend=FALSE) +
+    facet_grid(HSD + splab   ~stage, scales='free') +
+    
+    scale_colour_brewer(palette='Dark2') +
+    geom_abline(intercept=0, lty='dashed', col='grey50') + theme_bw() + theme_cust +
+    labs(x='Distance, r, (m)', y=expression(hat(K)(r)[con]-hat(K)(r)[het]),
+         color='Defaunation\nindex (DI)') +
+    theme(strip.text.y=element_text(size=6, face='italic', angle=270), 
+          strip.background=element_rect(colour="grey"))
+})  
+
+
+z.sp.all <- lapply(sp.plot.all, function(pl) ggplot_gtable(ggplot_build(pl)))
+##gtable_show_layout(z.sp.all[[1]])
+## add a labels at the top and sides
+
+z.sp.all <- lapply(z.sp.all, function(z)
+{
+  z <- gtable_add_rows(z, height=unit(z$heights[[6]], 'cm'), pos=5)
+  z <- gtable_add_cols(z, width=unit(z$heights[[6]], 'cm'), pos=8)
+
+  ## add header row with stage label
+  z <- gtable_add_grob(z,list(rectGrob(gp=gpar(fill=NA, col=NA, lwd=0.2)),
+                       textGrob("Cohort (cm dbh)",
+                                gp = gpar(fontsize=10))),
+                  t=6, l=4, b=6, r=6, name = paste(runif(2)))
+  ## add column with disperser senstitivity label
+  barlngth <-  length(z$heights) -4
+
+  z <- gtable_add_grob(z,list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0.2)),
+                                   textGrob("Reliance on hunted dispersers (RHD)", rot = -90,
+                                            gp = gpar(fontsize=10))),
+                              t=8, l=9, b=barlngth, r=9, name = paste(runif(2)))
+
+  z <- gtable_add_cols(z, width=z$widths[[2]], pos=1)
+
+  z <- gtable_add_grob(z, list(rectGrob(gp = gpar(fill=NA, col=NA, lwd=0)),
+                                   textGrob("Relative Conspecific clustering", rot = 90,
+                                            gp = gpar(fontsize=10))),
+                              t=7, l=2, b=barlngth, r=2, name = paste(runif(2)))
+  return(z)
+  })
+
+z <- z.sp.all[[1]]
+ggdraw(z)
+
+pdf('../../huntingpaper/JEcol/figures/revision/FigS1_byspecies_2pg_new.pdf', paper='A4', width=7, height=10)
+lapply(z.sp.all, function(z) ggdraw(z))
+dev.off()
+```
+
+## 6 Description of data set
+
+Extracing some summaries of the data to report in the paper
+
+  Some numbers on number of individuals/species etc etc
+```{r descriptive_stats}
+##reliance on different dispersers
+disp.list.uni <-  aggregate(cbind(LV, SV, SB, Bat, TR, Wind, Expl) ~Spp, 
+                            subset(hyperdat.uni.sel.c,
+                                   stage==levels(hyperdat.uni.sel$stage)[1]), unique)
+
+disp.list.bi <-  aggregate(cbind(LV, SV, SB, Bat, TR, Wind, Expl) ~Spp, 
+                           subset(hyperdat.bi.sel.c,
+                                  stage==levels(hyperdat.uni.sel$stage)[1]), unique)
+
+## Merge data from univariate and bivariate analyses
+disp.list <- merge(disp.list.uni, disp.list.bi, by="Spp", all=T, suffix=c('uni', 'bi'))
+
+## calculate number of species in each dispersal group
+apply(disp.list[, -1], 2, function(x) sum(x>0, na.rm=T)) ## number dependent to some degree
+apply(disp.list[, -1], 2, function(x) sum(x==1, na.rm=T)) ## number totally dependent
+apply(disp.list[, -1], 2, function(x) sum(!is.na(x))) ## Total number of vertebrate dispersed species
+
+
+29/178; 25/155
+121/178; 104/155 ## proportion large vertebrate dispersed
+
+## Number of stems in each life stage.
+aggregate(N1 ~ stage, hyperdat.uni.sel.c, sum) ##  univariate analysis
+aggregate(N1 ~ stage, hyperdat.bi.sel.c, sum) ## bivariate analysis
+aggregate(N2 ~ stage, hyperdat.bi.sel.c,  sum) ## number of adults in bivariate
+
+aggregate(Spp ~ pname, hyperdat.uni.sel.c, function(x) length(unique(x))) # species per site
+aggregate(Spp ~ pname, hyperdat.bi.sel.c, function(x) length(unique(x))) # species per site
+
+```
+

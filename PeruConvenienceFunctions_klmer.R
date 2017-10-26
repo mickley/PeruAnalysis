@@ -73,8 +73,8 @@ extractModResids <-  function(mod)
   coefdat <- coefdat[, !(names(coefdat) %in% c("k", "(weights)"))]
   
   resids <- tbl_df(cbind(coefdat, resids))
-
-  resids <- gather_(resids, "distance", "resid", distances)
+  resids <-  gather(resids, key="distance", 
+                    value="resid", as.character(distances))
   resids$distance <- as.numeric(resids$distance)
   return(resids)
 }
@@ -95,3 +95,34 @@ klmerci2plot <- function(x, preddat)
     spread(key = quant, value=value)
   return(preds)
 }
+
+## A function to calculate P-values from a klmerci object
+pvalCalc <-  function(x, mods, dists=NULL)
+{
+  
+  bootobj <- attr(x, "bootobj")
+  
+  if(is.null(dists)) 
+    dists <- 1:length(bootobj[[1]])
+  
+  t_obs <- sapply(mods, function(m) lme4::fixef(m)/sqrt(Matrix::diag(vcov(m))))
+  
+  t_sim <- lapply(bootobj, function(sim)
+  {
+    sapply(sim, function(sim_d) sim_d$beta_r/sqrt(diag(sim_d$vcov_r)))
+  })
+  t_sim_mat <- do.call(abind::"abind", args=list(what = t_sim, along=3))
+  
+  t_sim_sd <- apply(t_sim_mat, c(1, 2), sd)
+  
+  T_obs <- apply(t_obs/t_sim_sd, 1, mean)
+  
+  T_sim <- sapply(t_sim, function(sim, s, d)
+  {
+    apply(sim[,d]/s[,d], 1,  mean)
+  }, s=t_sim_sd, d=dists)
+  
+  pval <- apply(T_sim, 1, function(x) 1-2*abs((sum(x>0)+1)/(length(x) + 1) - 0.5))
+  return(cbind(T=T_obs, p=pval))  
+}
+

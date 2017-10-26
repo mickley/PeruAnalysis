@@ -15,10 +15,10 @@ options(width=80, digits=3)
 
 ### 1.1 Loading and installing libraries
 
-If you need to install the `ReplicatedPointPatterns` package, you can execute the following code. Note, you need the `devtools` package installed. 
+If you need to install the `RSPPlme4` package, you can execute the following code. Note, you need the `devtools` package installed. 
 
 ```{r package_install, eval=FALSE}
-##devtools::install_github('robertbagchi/ReplicatedPointPatterns')
+##devtools::install_github('BagchiLab-Uconn/RSPPlme4')
 ```
 
 We can then load all the necessary libraries.
@@ -49,12 +49,11 @@ library(gtable)
 
 
 * Function that standardises a vector (standardise)
-* Function to convert K functions to L functions (K2L)
-* Function that takes the output from the model and puts it in a convenient format for plotting (kfunclme2plot)
-* Function that plots the BLUEs against distance (plot.kfunctionlme)
-* Function that plots the coefficient and confidence intervals from a bootstrap (effectplot.Kfunctionlme)
+* Function that takes the output from the model and puts it in a convenient format for plotting (klmerci2plot)
+* Function that plots the BLUEs against distance (plot.klmerHyper)
+* Function that plots the coefficient and confidence intervals from a bootstrap (plot.klmerci)
 * Function to extract random effect BLUPs to allow plotting (extractModRanefs)
-* Function to extract residuals and covariates for plotting (plotModResids)
+* Function to extract residuals and covariates for plotting (ExtractModResids)
 
 ```{r convenienceFuncs}
 source("PeruConvenienceFunctions_klmer.R")
@@ -65,13 +64,20 @@ source("PeruConvenienceFunctions_klmer.R")
 ### 2.1 Read in the data
 ```{r loaddata}
 trees <- read.csv("../../data/mdd6plots_data_22jul2016.csv") ## tree locations
-dispersal <-  read.csv("../../data/MDDspp_dispersal_syndromes_22mar2017.csv") ## dispersal data
+dispersal <-  read.csv("../../data/MDDspp_dispersal_syndromes_18jul2017.csv") ## dispersal data
 sitedat <- read.csv("../../data/sitedata.csv") ## site information
 ```
 
 ```{r definitions}
 #Define maximum range over which to consider spatial patterns
 rmax <- 15
+## define dbh ranges of sizeclasses
+dbhgroups <- data.frame(maxdbh = c(0.99, 1.99, 3.99, 9.99, 300), 
+                   labels = c("dbh_0", "dbh_1", "dbh_2", "dbh_4", "dbh_10"))
+
+## size classes to include in analysis
+sizeclasses <- c("dbh_0", "dbh_1", "dbh_2", "dbh_4", "dbh_10")[c(1:2, 5)]
+minclass <- 1
 ```
 
 ### 2.2 Data organisation
@@ -79,8 +85,8 @@ rmax <- 15
 #### 2.1.1 Organise the dispersal data
 ```{r disporg}
 # Put dispersal into 1/0 format by filling in the NAs with 0s
-dispersal[, c('LV', 'SV', 'SB', 'Bat', 'TR', 'Wind', 'Expl', 'Unkwn', 'HSD', 'HID')] <-
-  apply(dispersal[, c('LV', 'SV', 'SB', 'Bat', 'TR', 'Wind', 'Expl', 'Unkwn', 'HSD', 'HID')],
+dispersal[, c('LV', 'SV', 'SB', 'Bat', 'TR', 'Wind', 'Expl', 'Unkwn', 'HSD')] <-
+  apply(dispersal[, c('LV', 'SV', 'SB', 'Bat', 'TR', 'Wind', 'Expl', 'Unkwn', 'HSD')],
         2, function(x) ifelse(is.na(x), 0, x))
 # combine wind and explosive dispersal into a single variable
 dispersal$Abiotic <-  dispersal$Wind + dispersal$Expl
@@ -157,15 +163,49 @@ We also add a code indicating whether, each species has at least one pair in the
 
 
 ```{r define_dbhclasses}
-
 trees$diam[trees$Type =="S"] <- 0.1 ## set sapling dbh to 0.1 (which isn't accurate, 
 #but works fine for our purposes - any value < 0.9 would work) 
 
-trees$Type <-  cut(trees$diam, breaks = c(0, .99, 1.99, 4.99, 9.99, 300), 
-                   labels = c("dbh_0", "dbh_1", "dbh_2", "dbh_5", "dbh_10"), include.lowest=TRUE)
+trees$Type <-  cut(trees$diam, breaks = c(0, dbhgroups$maxdbh), 
+                   labels = dbhgroups$labels, include.lowest=TRUE)
 
-table(trees$Type)
-sizeclasses <- levels(trees$Type) ## list of sizeclasses (useful later on)
+## remove adults with dbh < median dbh
+## first calculate adult median dbh, but truncated so that the maximum is 30
+truncmed <- function(x)
+{
+  out <- median(x)
+  out <- ifelse(out > 15, 15, 10)
+  return(out)
+}
+
+
+meddiam <- trees %>% filter(Type == dbhgroups$labels[length(dbhgroups$labels)]) %>%
+  group_by(code) %>% summarize(med_dbh = truncmed(diam))
+
+trees$adcutof <- meddiam$med_dbh[match(trees$code, meddiam$code)]
+
+trees$dbhclass <- trees$Type
+trees$Type[trees$Type == sizeclasses[length(sizeclasses)] &
+             trees$diam < trees$adcutof] <- NA
+
+abunddat <- trees %>% 
+  filter(Type %in% sizeclasses & 
+           !is.na(Type)) %>% 
+  group_by(code, Site, Type) %>% 
+  summarise(N = n_distinct(Tag))
+abunddat <- droplevels(abunddat)
+
+fulldat <- expand.grid(code = unique(abunddat$code),
+                       Site = levels(abunddat$Site),
+                       Type = levels(abunddat$Type))
+abunddat <-  merge(abunddat, fulldat, by=c("code", "Site", "Type"), 
+                   all=TRUE) %>% replace_na(list(N=0))
+abunddat <- merge(abunddat, sitedat[, c("site", "pname", "huntpres")], 
+                                    by.x="Site", by.y="site", all=TRUE)
+abunddat <- merge(abunddat, dispersal[, 1:11])
+
+trees <- subset(trees, Type %in% sizeclasses)
+
 
 ## Now get the abundance of each species x type x site combination
 ## and merge it into the dataset
@@ -182,22 +222,18 @@ abund$hasdisp <- abund$code %in% dispersal$code
 
 ## must have at least 1 pair of smallest size class, plus at least 1 pair
 ## in either of the two larger recruit groups
-
 abund$Quni <-  abund[,paste("N", sizeclasses[1], sep=".")] > 1 &
-  (abund[, paste("N", sizeclasses[2], sep=".")] + 
-     abund[, paste("N", sizeclasses[3], sep=".")]) > 1 &
-  abund[, "hasdisp"]
+  apply(as.matrix(abund[, paste("N", sizeclasses[2:(length(sizeclasses)-1)], sep='.')]), 
+        1, function(x) sum(x>1)>=minclass) &
+    abund[, "hasdisp"]
 
-abund$Qbi <-  abund[,paste("N", sizeclasses[1], sep=".")] > 1 &
-  (abund[, paste("N", sizeclasses[2], sep=".")] + 
-     abund[, paste("N", sizeclasses[3], sep=".")]) > 1 &
-  abund[, paste("N", sizeclasses[length(sizeclasses)], sep=".")] > 1 &
-  abund[, "hasdisp"]
+abund$Qbi <-  abund$Quni & 
+  (abund[ , paste("N", sizeclasses[length(sizeclasses)], sep='.')] > 1)
 
-summary(abund)
 
 ## Some preliminary numbers of how many stems and species qualify
 sum(abund$Quni); sum(abund$Qbi) ## 
+
 apply(abund[abund$Quni, paste0("N.", sizeclasses)], 2, sum) 
 apply(abund[abund$Qbi, paste0("N.", sizeclasses)], 2, sum) 
 
@@ -206,6 +242,45 @@ trees$Spp <- droplevels(trees$Spp)
 nlevels(trees$Spp)
 ```
 
+
+```{r abund_analysis}
+library(glmmTMB)
+
+abunddat <- subset(abunddat, !(Unkwn > 0 | Wind > 0 | Expl > 1))
+
+mod1 <- glmmTMB(N~Type*huntpres*HSD + (1|Site/code), 
+              data=abunddat, family=nbinom2)
+summary(mod1)
+mod2 <- glmmTMB(N~(Type + huntpres + HSD)^2 + (1|Site/code), 
+              data=abunddat, family=nbinom2)
+summary(mod2)
+mod2.1 <-  update(mod2, ~.-Type:huntpres)
+mod2.2 <-  update(mod2, ~.-Type:HSD)
+mod2.3 <-  update(mod2, ~.-HSD:huntpres)
+
+anova(mod1, mod2) ## 3 way ns - no evidence that hunting reduces LV dispersed species
+                  ## more
+anova(mod2, mod2.1) ## juveniles significantly more abundant in hunted forests
+anova(mod2, mod2.2) ## LV dispersed adults significantly more abundant OVERALL!
+                    ## Not evidence that hunting affects LV dispersed species more.
+anova(mod2, mod2.3) ## No interaction between hunting and reliance on hunted dispersers
+
+library(vegan)
+
+spdiv <- abunddat %>% group_by(Type, Site) %>% 
+  summarise(diversity = exp(diversity(N))) 
+
+spdiv <- merge(spdiv, sitedat[, c("site","huntpres")], 
+               by.x="Site", by.y="site")
+ggplot(spdiv, aes(x=huntpres, y=diversity, colour=Type)) + 
+  geom_point() + geom_smooth(method="glm", 
+                             method.args=list(family=gaussian(link="log")))
+mod.div <- glm(diversity~huntpres*Type, family=gaussian(link="log"), data=spdiv)
+summary(mod.div)
+anova(mod.div, test="F")
+```
+
+This analysis suggests that hunting doesn't disproportinately affect tree species dispersed by hunted vertebrates. There is some evidence that high HSD species have lower sapling:adult ratios (fewer saplings per adult), but that is true across the board. There is also evidence that all zoochorous species have lower sapling:adult ratios as defaunation increases. However, it seems unlikely that small bird dispersed species would be affected too. Perhaps there is another mechanism here. There is no effect of hunting on changes in diversity through cohorts - the trend with the main effect of huntpres is an artefact of spatial variation in diversity.
 
 ### 2.3 Calculate the K functions
 
@@ -256,8 +331,7 @@ splists.bi <- lapply(trees, function(dat) unique(dat$code[dat$Qbi]))
 Turn the data from each species into a point pattern, split up by age class
 A few adult points in CC12 are right on the boundary and this leads to the warnings below, which we deal with in the final function which removes species where this is a problem from the analysis.
 
-```{r pointpatterns}
-
+```{r pointpatterns, warning=FALSE}
 ppp.sps.uni <- mapply(function(spid, treedat, win)
 {
   ppp.sp <- lapply(as.list(spid), function(id, treedat, win)
@@ -389,7 +463,7 @@ hyperdat.uni  <- mapply(function(dat,sitenms, sc)
                             dispersal[match(hyper$sp.id, dispersal$code),
                                       c('Spp', 'LV', 'SV', 'SB', 'Bat',
                                         'TR', 'Wind', 'Expl',
-                                        'Unkwn', 'Abiotic', 'HSD', 'HID')])
+                                        'Unkwn', 'Abiotic', 'HSD')])
   hyper <- subset(hyper, N1 > 1)
   
   ## Concpecific K function
@@ -423,29 +497,24 @@ We now do a final cut of species x site combinations with insufficient data. Eve
 
 ```{r selectspeciesuni, warnings=FALSE}
 ## We need to remove data from sizeclasses without enough data
-## First look for any NAs in the Kfunctions - which is a clue of insufficient data
-# rmlist <- lapply(hyperdat.uni, function(d)
-#   d$sp.id[sapply(d$K, function(dk) any(is.na(dk$border)))])
-# hyperdat.uni.sel <- mapply(function(dat, sprm){
-#   dat <- dat[!(dat$sp.id %in% sprm),]
-#   return(dat)}, dat=hyperdat.uni, sprm=rmlist, 
-#   SIMPLIFY=FALSE) 
-
 ## Find list of species with NAs in K functions
 keeplist <- lapply(hyperdat.uni, function(d)
   sapply(d$K, function(dk) !any(is.na(dk$border))))
 ## Remove those site x species x size class combinations, 
 ## then remove sites x species that no longer satisfy the requirements for analysis 
-dat <- hyperdat.uni$BM; spkp <-  keeplist$BM
 hyperdat.uni.sel <- mapply(function(dat, spkp){
   dat <- dat[spkp,]
+  
   itab <- table(dat$sp.id, dat$stage) 
-  rmlist <- (which(itab[,1]==0))
-  rmlist <- c(rmlist, (which(itab[,1] + itab[,3]==0)))
-  dat <- dat[!(dat$sp.id %in% rmlist),]
+  rmlist <- (which(itab[,1]==0)) ## identify species that don't have saplings
+  ## identify speices that don't have at least minclass additonal non-zero size classes
+  rmlist <- c(rmlist, 
+              which(apply(as.matrix(itab[,sizeclasses[-c(1, length(sizeclasses))]]), 
+                    1, function(x) sum(x) < minclass)))
+  dat <- dat[!(dat$sp.id %in% names(rmlist)),]
   return(dat)
-}, dat=hyperdat.uni, spkp=keeplist, 
-SIMPLIFY=FALSE) 
+}, dat=hyperdat.uni, spkp=keeplist, SIMPLIFY=FALSE) 
+
 
 ## gives us the number of speciesxsite combinations and for each site.
 sum(sapply(hyperdat.uni.sel, function(x) length(unique(x$Spp))))
@@ -456,7 +525,7 @@ hyperdat.uni.sel <- do.call('rbind', hyperdat.uni.sel)
 ## We can now remove unused levels
 hyperdat.uni.sel$sp.id <- droplevels(hyperdat.uni.sel$sp.id)
 hyperdat.uni.sel$Spp <- droplevels(hyperdat.uni.sel$Spp)
-summary(hyperdat.uni.sel)
+
 ```
 
 
@@ -496,7 +565,7 @@ hyperdat.bi  <- mapply(function(dat, sitenms, sc)
                             dispersal[match(hyper$sp.id, dispersal$code),
                                       c('Spp', 'LV', 'SV', 'SB', 'Bat', 'TR',
                                         'Wind', 'Expl',
-                                        'Unkwn', 'Abiotic','HSD', 'HID')])
+                                        'Unkwn', 'Abiotic','HSD')])
   
   
   ppp.s <- with(hyper, superimpose(i=pppx, j=pppy, W=pppy$window))
@@ -527,7 +596,7 @@ MoreArgs=list(sc=sizeclasses), SIMPLIFY=FALSE)
 ```
 
 
-Because we are using plus-sampling rather than minus-sampling for the bivariate analysis, we don't need to do a final cut of speices as we did in the univariaten case. 
+Because we are using plus-sampling rather than minus-sampling for the bivariate analysis, we don't need to do a final cut of speices as we did in the univariate case. 
 
 
 
@@ -540,7 +609,6 @@ sapply(hyperdat.bi, function(x) length(unique(x$Spp)))
 hyperdat.bi <- do.call('rbind', hyperdat.bi)
 summary(hyperdat.bi)
 
-
 ## Removing those species now
 hyperdat.bi.sel <- subset(hyperdat.bi, !((sp.id == 187 & pname=='CC2')))
 #                                            (sp.id==314 & pname=='CC2') |
@@ -552,7 +620,7 @@ hyperdat.bi.sel <- subset(hyperdat.bi, !((sp.id == 187 & pname=='CC2')))
 ## We can now remove unused levels
 hyperdat.bi.sel$sp.id <- droplevels(hyperdat.bi.sel$sp.id)
 hyperdat.bi.sel$Spp <- droplevels(hyperdat.bi.sel$Spp)
-
+nlevels(hyperdat.bi.sel$Spp)
 aggregate(sp.id ~ site, hyperdat.bi.sel, function(x) length(unique(x)))
 
 ```
@@ -561,8 +629,9 @@ aggregate(sp.id ~ site, hyperdat.bi.sel, function(x) length(unique(x)))
 At this point it is useful to save the objects we have created and are required for analysis so we don't always have to repeat processing and to minimise processing on the cluster. We save our results as a data object.
 
 ```{r saveobjects}
+nsclass <- length(sizeclasses)-1
 save('dispersal', "sitedat", 'hyperdat.uni.sel', 'hyperdat.bi.sel', 
-     'ppp.sps.uni', "ppp.sps.bi", 'trees', 'winlist', 'rmax',
-      file='../data/data4peruanalysis_v8.1.RData')
+     'ppp.sps.uni', "ppp.sps.bi", 'trees', 'winlist', 'rmax', 'minclass', 'sizeclasses',
+      file=paste0("../data/data4peruanalysis_v8.3_", nsclass, "class.RData"))
 ```
 
